@@ -5,7 +5,7 @@ import {
   useFonts,
 } from '@expo-google-fonts/montserrat';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -13,18 +13,20 @@ import 'react-native-reanimated';
 import "../global.css";
 
 import SplashLoader from '@/components/SplashLoader';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 // Empêche le splash natif de se cacher automatiquement
 SplashScreen.preventAutoHideAsync();
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: '(auth)',
 };
 
-export default function RootLayout() {
+function AppNavigator() {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const colorScheme = useColorScheme();
-  const [showSplash, setShowSplash] = useState(true);
+  const [splashDone, setSplashDone] = useState(false);
 
   const [fontsLoaded] = useFonts({
     PumpDemiBold: require('../assets/fonts/Pump_Demi_Bold_LET_Plain.ttf'),
@@ -36,27 +38,44 @@ export default function RootLayout() {
   useEffect(() => {
     async function prepare() {
       if (!fontsLoaded) return;
-      try {
-        // Autres chargements initiaux ici si besoin
-      } finally {
-        await SplashScreen.hideAsync();
-        setTimeout(() => setShowSplash(false), 8000);
-      }
+      await SplashScreen.hideAsync();
+      setTimeout(() => {
+        setSplashDone(true);
+        if (!authLoading) {
+          router.replace(isAuthenticated ? '/(tabs)' : ('/(auth)/login' as any));
+        }
+      }, 2000);
     }
     prepare();
   }, [fontsLoaded]);
 
-  if (showSplash || !fontsLoaded) {
+  // Redirection après authLoading résolu (si le splash est déjà terminé)
+  useEffect(() => {
+    if (splashDone && !authLoading) {
+      router.replace(isAuthenticated ? '/(tabs)' : ('/(auth)/login' as any));
+    }
+  }, [authLoading, isAuthenticated, splashDone]);
+
+  if (!splashDone || !fontsLoaded) {
     return <SplashLoader />;
   }
 
   return (
     <ThemeProvider value={colorScheme === 'light' ? DarkTheme : DefaultTheme}>
       <Stack>
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
   );
 }
+
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <AppNavigator />
+    </AuthProvider>
+  );
+}
+
