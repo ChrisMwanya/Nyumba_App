@@ -35,10 +35,10 @@ export type RefreshResponse = {
 };
 
 // POST /auth/login
-export function login(email: string, password: string): Promise<LoginResponse> {
+export function login(uid: string, password: string): Promise<LoginResponse> {
   return apiRequest<LoginResponse>('/auth/login', {
     method: 'POST',
-    body: { email, password },
+    body: { email: uid, password }, // Identifiant envoyé comme 'email' pour le moment
   });
 }
 
@@ -94,5 +94,25 @@ export function deleteAccount(accessToken: string): Promise<{ message: string }>
   return apiRequest('/auth/delete-account', {
     method: 'DELETE',
     token: accessToken,
+  });
+}
+// POST /auth/forgot-password
+export function forgotPassword(uid: string): Promise<{ message: string }> {
+  return apiRequest('/auth/forgot-password', {
+    method: 'POST',
+    body: { email: uid }, // Identifiant envoyé comme 'email' pour le moment
+  });
+}
+
+// POST /auth/reset-password
+export function resetPassword(payload: {
+  email: string;
+  token: string;
+  password: string;
+  password_confirmation: string;
+}): Promise<{ message: string }> {
+  return apiRequest('/auth/reset-password', {
+    method: 'POST',
+    body: payload,
   });
 }

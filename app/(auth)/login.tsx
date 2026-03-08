@@ -1,6 +1,6 @@
 import { ApiError, useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,27 +17,27 @@ import {
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [emailFocused, setEmailFocused] = useState(false);
+  const [identifierFocused, setIdentifierFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
   const handleLogin = async () => {
-    if (!email.trim() || !password) {
+    if (!identifier.trim() || !password) {
       setGlobalError('Veuillez remplir tous les champs.');
       return;
     }
     setGlobalError(null);
     setLoading(true);
     try {
-      await signIn(email.trim(), password);
+      await signIn(identifier.trim(), password);
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401 || err.status === 400) {
-          setGlobalError('Email ou mot de passe incorrect.');
+          setGlobalError('Email/Téléphone ou mot de passe incorrect.');
         } else if (err.status === 403) {
           setGlobalError('Votre compte est désactivé. Contactez le support.');
         } else {
@@ -93,32 +93,32 @@ export default function LoginScreen() {
             </View>
           )}
 
-          {/* Champ Email */}
+          {/* Champ Identifiant */}
           <View className="mb-6">
             <Text className="text-gray-400 text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
-              Adresse email
+              Email ou Téléphone
             </Text>
             <View
               className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${
-                emailFocused ? 'border-dark-teal' : 'border-white/5'
+                identifierFocused ? 'border-dark-teal' : 'border-white/5'
               }`}
             >
               <Ionicons
-                name="mail-outline"
+                name="person-outline"
                 size={20}
-                color={emailFocused ? '#00BFA5' : '#6B7280'}
+                color={identifierFocused ? '#00BFA5' : '#6B7280'}
                 style={{ marginRight: 12 }}
               />
               <TextInput
                 className="flex-1 text-white text-base font-body"
-                placeholder="votre@email.com"
+                placeholder="votre@email.com ou 07..."
                 placeholderTextColor="#4B5563"
-                value={email}
-                onChangeText={(v) => { setEmail(v); setGlobalError(null); }}
-                keyboardType="email-address"
+                value={identifier}
+                onChangeText={(v) => { setIdentifier(v); setGlobalError(null); }}
+                keyboardType="default"
                 autoCapitalize="none"
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
+                onFocus={() => setIdentifierFocused(true)}
+                onBlur={() => setIdentifierFocused(false)}
               />
             </View>
           </View>
@@ -161,7 +161,7 @@ export default function LoginScreen() {
 
           {/* Mot de passe oublié */}
           <View className="items-end mb-10">
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password' as any)}>
               <Text className="text-dark-teal text-sm font-body-medium">
                 Mot de passe oublié ?
               </Text>

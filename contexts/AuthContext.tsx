@@ -15,7 +15,7 @@ type AuthContextType = {
   accessToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (uid: string, password: string) => Promise<void>;
   signUp: (payload: {
     fullName: string;
     email: string;
@@ -67,8 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadSession();
   }, []);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const data = await authService.login(email, password);
+  const signIn = useCallback(async (uid: string, password: string) => {
+    const data = await authService.login(uid, password);
     await SecureStore.setItemAsync(SECURE_KEYS.ACCESS_TOKEN, data.access_token.token);
     await SecureStore.setItemAsync(SECURE_KEYS.REFRESH_TOKEN, data.refresh_token.token);
     setAccessToken(data.access_token.token);

@@ -210,7 +210,7 @@ export default function ProfileScreen() {
   );
 
   return (
-    <SafeAreaView style={{ backgroundColor: '#0F1721' }}>
+    <SafeAreaView style={{ flex:1, backgroundColor: '#0F1721' }}>
       <ScrollView 
        
         showsVerticalScrollIndicator={true}
