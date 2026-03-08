@@ -118,7 +118,7 @@ export default function ForgotPasswordScreen() {
                   <ActivityIndicator color="#ffffff" />
                 ) : (
                   <Text className="text-white text-base font-body-bold tracking-wider">
-                    Envoyer le lien
+                    Envoyer le code
                   </Text>
                 )}
               </TouchableOpacity>
