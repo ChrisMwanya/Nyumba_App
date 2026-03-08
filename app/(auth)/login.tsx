@@ -53,7 +53,7 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-white"
+      className="flex-1 bg-dark-bg"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
@@ -61,65 +61,58 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* En-tête avec fond primary */}
-        <View className="bg-primary px-6 pt-16 pb-12 items-center rounded-b-[40px]">
-          <Image
-            source={require('../../assets/images/splash-icon-light.png')}
-            className="w-24 h-24"
-            resizeMode="contain"
-          />
-       
-          <Text className="text-white/70 text-sm mt-1" style={{ fontFamily: 'Montserrat_400Regular' }}>
+        {/* En-tête avec fond sombre et accent teal */}
+        <View className="bg-dark-bg px-6 pt-20 pb-12 items-center">
+          <View className="w-20 h-20 bg-dark-surface rounded-[24px] items-center justify-center border border-white/5 mb-6">
+            <Image
+              source={require('../../assets/images/splash-icon-light.png')}
+              className="w-12 h-12"
+              resizeMode="contain"
+            />
+          </View>
+          <Text className="text-white text-3xl font-body-bold mb-2">Nyumba</Text>
+          <Text className="text-gray-400 text-sm font-body text-center">
             Gérez vos propriétés facilement
           </Text>
         </View>
 
         {/* Formulaire */}
-        <View className="flex-1 px-6 pt-10 pb-8">
-          <Text
-            className="text-2xl text-gray-800 mb-2"
-            style={{ fontFamily: 'Montserrat_700Bold' }}
-          >
-            Connexion
-          </Text>
-          <Text className="text-gray-500 mb-8 text-sm" style={{ fontFamily: 'Montserrat_400Regular' }}>
-            Content de vous revoir ! Connectez-vous à votre compte.
+        <View className="flex-1 px-8 pb-10">
+          <Text className="text-white text-2xl font-body-bold mb-2">Content de vous revoir</Text>
+          <Text className="text-gray-400 text-sm font-body mb-10">
+            Connectez-vous à votre compte.
           </Text>
 
           {/* Erreur globale */}
           {globalError && (
-            <View className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 mb-6 flex-row items-center gap-2">
-              <Ionicons name="alert-circle-outline" size={18} color="#EF4444" />
-              <Text className="text-red-600 text-sm flex-1" style={{ fontFamily: 'Montserrat_400Regular' }}>
+            <View className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-4 mb-8 flex-row items-center">
+              <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
+              <Text className="text-red-500 text-sm font-body ml-3 flex-1">
                 {globalError}
               </Text>
             </View>
           )}
 
           {/* Champ Email */}
-          <View className="mb-5">
-            <Text
-              className="text-gray-600 text-xs mb-2 uppercase tracking-widest"
-              style={{ fontFamily: 'Montserrat_500Medium' }}
-            >
+          <View className="mb-6">
+            <Text className="text-gray-400 text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
               Adresse email
             </Text>
             <View
-              className={`flex-row items-center border rounded-2xl px-4 py-4 bg-gray-50 ${
-                emailFocused ? 'border-primary' : 'border-gray-200'
+              className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${
+                emailFocused ? 'border-dark-teal' : 'border-white/5'
               }`}
             >
               <Ionicons
                 name="mail-outline"
                 size={20}
-                color={emailFocused ? '#1A306C' : '#9CA3AF'}
+                color={emailFocused ? '#00BFA5' : '#6B7280'}
                 style={{ marginRight: 12 }}
               />
               <TextInput
-                className="flex-1 text-gray-800 text-base"
-                style={{ fontFamily: 'Montserrat_400Regular' }}
+                className="flex-1 text-white text-base font-body"
                 placeholder="votre@email.com"
-                placeholderTextColor="#D1D5DB"
+                placeholderTextColor="#4B5563"
                 value={email}
                 onChangeText={(v) => { setEmail(v); setGlobalError(null); }}
                 keyboardType="email-address"
@@ -131,29 +124,25 @@ export default function LoginScreen() {
           </View>
 
           {/* Champ Mot de passe */}
-          <View className="mb-3">
-            <Text
-              className="text-gray-600 text-xs mb-2 uppercase tracking-widest"
-              style={{ fontFamily: 'Montserrat_500Medium' }}
-            >
+          <View className="mb-4">
+            <Text className="text-gray-400 text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
               Mot de passe
             </Text>
             <View
-              className={`flex-row items-center border rounded-2xl px-4 py-4 bg-gray-50 ${
-                passwordFocused ? 'border-primary' : 'border-gray-200'
+              className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${
+                passwordFocused ? 'border-dark-teal' : 'border-white/5'
               }`}
             >
               <Ionicons
                 name="lock-closed-outline"
                 size={20}
-                color={passwordFocused ? '#1A306C' : '#9CA3AF'}
+                color={passwordFocused ? '#00BFA5' : '#6B7280'}
                 style={{ marginRight: 12 }}
               />
               <TextInput
-                className="flex-1 text-gray-800 text-base"
-                style={{ fontFamily: 'Montserrat_400Regular' }}
+                className="flex-1 text-white text-base font-body"
                 placeholder="••••••••"
-                placeholderTextColor="#D1D5DB"
+                placeholderTextColor="#4B5563"
                 value={password}
                 onChangeText={(v) => { setPassword(v); setGlobalError(null); }}
                 secureTextEntry={!showPassword}
@@ -164,19 +153,16 @@ export default function LoginScreen() {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color="#9CA3AF"
+                  color="#6B7280"
                 />
               </Pressable>
             </View>
           </View>
 
           {/* Mot de passe oublié */}
-          <View className="items-end mb-8">
+          <View className="items-end mb-10">
             <TouchableOpacity>
-              <Text
-                className="text-primary text-sm"
-                style={{ fontFamily: 'Montserrat_500Medium' }}
-              >
+              <Text className="text-dark-teal text-sm font-body-medium">
                 Mot de passe oublié ?
               </Text>
             </TouchableOpacity>
@@ -184,48 +170,28 @@ export default function LoginScreen() {
 
           {/* Bouton Connexion */}
           <TouchableOpacity
-            className="bg-primary rounded-2xl py-5 items-center"
+            className={`bg-dark-teal rounded-2xl py-5 items-center ${loading ? 'opacity-70' : ''}`}
             onPress={handleLogin}
-            activeOpacity={0.85}
+            activeOpacity={0.8}
             disabled={loading}
-            style={{
-              shadowColor: '#1A306C',
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.35,
-              shadowRadius: 12,
-              elevation: 8,
-              opacity: loading ? 0.8 : 1,
-            }}
           >
             {loading ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text
-                className="text-white text-base tracking-wider"
-                style={{ fontFamily: 'Montserrat_700Bold' }}
-              >
+              <Text className="text-white text-base font-body-bold tracking-wider">
                 Se connecter
               </Text>
             )}
           </TouchableOpacity>
 
-          {/* Séparateur */}
-          <View className="flex-row items-center my-8">
-            <View className="flex-1 h-px bg-gray-200" />
-            <Text className="mx-4 text-gray-400 text-xs" style={{ fontFamily: 'Montserrat_400Regular' }}>
-              ou
-            </Text>
-            <View className="flex-1 h-px bg-gray-200" />
-          </View>
-
           {/* Lien vers inscription */}
-          <View className="flex-row justify-center items-center">
-            <Text className="text-gray-500 text-sm" style={{ fontFamily: 'Montserrat_400Regular' }}>
+          <View className="flex-row justify-center items-center mt-10">
+            <Text className="text-gray-400 text-sm font-body">
               Pas encore de compte ?{' '}
             </Text>
             <Link href={"/(auth)/register" as any} asChild>
               <TouchableOpacity>
-                <Text className="text-primary text-sm" style={{ fontFamily: 'Montserrat_700Bold' }}>
+                <Text className="text-white font-body-bold text-sm">
                   Créer un compte
                 </Text>
               </TouchableOpacity>

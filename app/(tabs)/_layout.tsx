@@ -6,18 +6,25 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#1A306C',
-        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarActiveTintColor: '#00BFA5',
+        tabBarInactiveTintColor: '#6B7280',
         tabBarStyle: {
-          backgroundColor: '#ffffff',
-          borderTopColor: '#F3F4F6',
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 64,
+          backgroundColor: '#0F1721',
+          borderTopColor: 'rgba(255,255,255,0.05)',
+          paddingBottom: 10,
+          paddingTop: 10,
+          height: 70,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          borderTopWidth: 1,
+          elevation: 0,
         },
         tabBarLabelStyle: {
           fontFamily: 'Montserrat_500Medium',
-          fontSize: 11,
+          fontSize: 10,
+          marginTop: 4,
         },
       }}
     >
@@ -25,8 +32,26 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Accueil',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "home" : "home-outline"} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          title: 'Recherche',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "search" : "search-outline"} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="favorites"
+        options={{
+          title: 'Favoris',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "heart" : "heart-outline"} size={22} color={color} />
           ),
         }}
       />
@@ -34,8 +59,8 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Profil',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "person" : "person-outline"} size={22} color={color} />
           ),
         }}
       />

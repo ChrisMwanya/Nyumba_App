@@ -1,10 +1,13 @@
 import { useAuth } from '@/contexts/AuthContext';
 import * as authService from '@/services/authService';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,9 +17,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
   const { user, signOut, accessToken } = useAuth();
+  const router = useRouter();
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   
@@ -35,6 +40,30 @@ export default function ProfileScreen() {
 
   // General state
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert('Permission requise', 'Nous avons besoin de votre permission pour accéder à vos photos.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setProfileImage(result.assets[0].uri);
+      // Logic for backend upload would go here
+      Alert.alert('Succès', 'Photo de profil mise à jour localement.');
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -135,21 +164,29 @@ export default function ProfileScreen() {
     );
   };
 
-  const InfoRow = ({ icon, label, value }: { icon: any; label: string; value: string }) => (
-    <View className="flex-row items-center py-4 border-b border-gray-100">
-      <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mr-4">
-        <Ionicons name={icon} size={20} color="#1A306C" />
+  const SettingsRow = ({ icon, label, onPress, isDestructive, showDivider = true, isLoading = false }: any) => (
+    <TouchableOpacity 
+      onPress={onPress}
+      className={`flex-row items-center justify-between px-4 py-4 ${showDivider ? 'border-b border-white/5' : ''}`}
+      activeOpacity={0.6}
+    >
+      <View className="flex-row items-center">
+        <View className={`w-10 h-10 rounded-xl items-center justify-center mr-4 ${isDestructive ? 'bg-red-500/10' : 'bg-dark-accent/30'}`}>
+          <Ionicons name={icon} size={20} color={isDestructive ? '#EF4444' : '#00BFA5'} />
+        </View>
+        <Text className={`font-body-medium text-base ${isDestructive ? 'text-red-500' : 'text-white'}`}>{label}</Text>
       </View>
-      <View className="flex-1">
-        <Text className="text-gray-400 text-xs mb-1 font-body">{label}</Text>
-        <Text className="text-gray-800 text-sm font-body-medium">{value || 'Non renseigné'}</Text>
-      </View>
-    </View>
+      {isLoading ? (
+        <ActivityIndicator size="small" color={isDestructive ? '#EF4444' : '#00BFA5'} />
+      ) : (
+        <Ionicons name="chevron-forward" size={20} color={isDestructive ? '#EF4444' : '#ffffff20'} />
+      )}
+    </TouchableOpacity>
   );
 
   const InputField = ({ label, value, onChangeText, keyboardType = 'default' as any, placeholder, secureTextEntry }: any) => (
     <View className="mb-5">
-      <Text className="text-gray-600 text-sm font-body-medium mb-2 ml-1">{label}</Text>
+      <Text className="text-gray-400 text-sm font-body-medium mb-2 ml-1">{label}</Text>
       <View className="relative">
         <TextInput
           value={value}
@@ -157,15 +194,15 @@ export default function ProfileScreen() {
           keyboardType={keyboardType}
           placeholder={placeholder}
           secureTextEntry={secureTextEntry}
-          className="bg-gray-50 border border-gray-100 px-4 py-4 rounded-xl text-gray-800 font-body"
-          placeholderTextColor="#9CA3AF"
+          className="bg-dark-surface border border-white/5 px-4 py-4 rounded-xl text-white font-body"
+          placeholderTextColor="#6B7280"
         />
         {label.toLowerCase().includes('pass') && (
            <TouchableOpacity 
              className="absolute right-4 top-4"
              onPress={() => setShowPasswords(!showPasswords)}
            >
-             <Ionicons name={showPasswords ? "eye-off-outline" : "eye-outline"} size={20} color="#9CA3AF" />
+             <Ionicons name={showPasswords ? "eye-off-outline" : "eye-outline"} size={20} color="#6B7280" />
            </TouchableOpacity>
         )}
       </View>
@@ -173,105 +210,165 @@ export default function ProfileScreen() {
   );
 
   return (
-    <View className="flex-1 bg-white">
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={{ backgroundColor: '#0F1721' }}>
+      <ScrollView 
+       
+        showsVerticalScrollIndicator={true}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 140 }}
+      >
         {/* Header Profile Section */}
-        <View className="bg-primary pt-16 pb-12 px-6 items-center rounded-b-[40px] relative">
+        <View className="px-6  pb-8">
+          <View className="flex-row items-center justify-between mb-8">
+            <TouchableOpacity 
+              onPress={() => router.push('/(tabs)' as any)}
+              className="w-10 h-10 rounded-full items-center justify-center bg-white/5"
+            >
+              <Ionicons name="arrow-back" size={24} color="white" />
+            </TouchableOpacity>
+            <Text className="text-white text-xl font-body-bold">Mon Profil</Text>
+            <View className="w-10" />
+          </View>
+
+          <View className="items-center mb-6">
+            <View className="relative">
+              <TouchableOpacity 
+                onPress={pickImage}
+                activeOpacity={0.8}
+                className="w-28 h-28 rounded-full bg-dark-surface items-center justify-center border-4 border-white/10 overflow-hidden"
+              >
+                {profileImage ? (
+                  <Image source={{ uri: profileImage }} className="w-full h-full" />
+                ) : (
+                  <Text className="text-white text-4xl font-heading">
+                    {user?.fullName?.split(' ').map((n: string) => n[0]).join('').toUpperCase() ?? 'U'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={pickImage}
+                className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-dark-teal items-center justify-center border-2 border-dark-bg"
+              >
+                <Ionicons name="pencil" size={14} color="white" />
+              </TouchableOpacity>
+            </View>
+            <Text className="text-white text-2xl font-body-bold mt-4 mb-1">
+              Bonjour, {user?.fullName}
+            </Text>
+            <Text className="text-gray-400 text-sm font-body">
+              {user?.email}
+            </Text>
+          </View>
+
           <TouchableOpacity 
             onPress={() => setEditModalVisible(true)}
-            className="absolute right-6 top-16 w-10 h-10 rounded-full bg-white/20 items-center justify-center"
-            activeOpacity={0.7}
+            className="bg-dark-accent/40 py-4 rounded-2xl items-center border border-dark-teal/20"
+            activeOpacity={0.8}
           >
-            <Ionicons name="create-outline" size={20} color="white" />
+            <Text className="text-dark-teal font-body-bold text-base">Modifier les informations</Text>
           </TouchableOpacity>
-
-          <View className="w-24 h-24 rounded-full bg-white/20 items-center justify-center border-2 border-white/30 mb-4">
-            <Text className="text-white text-3xl font-heading">
-              {user?.fullName?.split(' ').map((n: string) => n[0]).join('').toUpperCase() ?? 'U'}
-            </Text>
-          </View>
-          <Text className="text-white text-xl font-body-bold mb-1">
-            {user?.fullName}
-          </Text>
-          <View className="bg-white/20 px-3 py-1 rounded-full">
-            <Text className="text-white text-xs font-body-medium capitalize">
-              {user?.role?.name ?? 'Utilisateur'}
-            </Text>
-          </View>
         </View>
 
-        <View className="px-6 py-8">
-          <Text className="text-gray-900 text-lg font-body-bold mb-4">Informations personnelles</Text>
-          <View className="bg-white rounded-2xl border border-gray-100 px-4 mb-8">
-            <InfoRow icon="mail-outline" label="Email" value={user?.email ?? ''} />
-            <InfoRow icon="call-outline" label="Téléphone" value={user?.phone ?? ''} />
-            <InfoRow icon="shield-checkmark-outline" label="Rôle" value={user?.role?.name ?? ''} />
+        <View className="px-6">
+          {/* General Settings */}
+          <View className="bg-dark-surface rounded-3xl overflow-hidden mb-8 border border-white/5">
+            <SettingsRow icon="notifications-outline" label="Préférences de notification" showDivider />
+            <SettingsRow icon="card-outline" label="Moyens de paiement" showDivider />
+            <SettingsRow icon="lock-closed-outline" label="Sécurité" onPress={() => setPasswordModalVisible(true)} showDivider={false} />
           </View>
 
-          <Text className="text-gray-900 text-lg font-body-bold mb-4">Sécurité</Text>
-          <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          {/* Reservations section */}
+          <Text className="text-white text-xl font-body-bold mb-4">Mes Réservations</Text>
+          
+          <View className="flex-row bg-dark-surface p-1.5 rounded-2xl mb-6 border border-white/5">
             <TouchableOpacity 
-              onPress={() => setPasswordModalVisible(true)}
-              className="flex-row items-center justify-between px-4 py-4 border-b border-gray-50"
-              activeOpacity={0.6}
+              onPress={() => setActiveTab('upcoming')}
+              className={`flex-1 py-3 rounded-xl items-center ${activeTab === 'upcoming' ? 'bg-white/10' : ''}`}
             >
-              <View className="flex-row items-center">
-                <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mr-4">
-                  <Ionicons name="lock-closed-outline" size={20} color="#1A306C" />
-                </View>
-                <Text className="text-gray-800 font-body-medium">Modifier mon mot de passe</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              <Text className={`font-body-medium ${activeTab === 'upcoming' ? 'text-white' : 'text-gray-400'}`}>À venir</Text>
             </TouchableOpacity>
-
             <TouchableOpacity 
-              onPress={handleDeleteAccount}
-              disabled={isDeletingAccount}
-              className="flex-row items-center justify-between px-4 py-4"
-              activeOpacity={0.6}
+              onPress={() => setActiveTab('history')}
+              className={`flex-1 py-3 rounded-xl items-center ${activeTab === 'history' ? 'bg-white/10' : ''}`}
             >
-              <View className="flex-row items-center">
-                <View className="w-10 h-10 rounded-full bg-red-50 items-center justify-center mr-4">
-                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                </View>
-                <Text className="text-red-500 font-body-medium">Supprimer mon compte</Text>
-              </View>
-              {isDeletingAccount ? <ActivityIndicator size="small" color="#EF4444" /> : <Ionicons name="chevron-forward" size={20} color="#FECACA" />}
+              <Text className={`font-body-medium ${activeTab === 'history' ? 'text-white' : 'text-gray-400'}`}>Historique</Text>
             </TouchableOpacity>
           </View>
 
+          {/* Reservation Card Mockup */}
+          <View className="bg-dark-surface rounded-[32px] overflow-hidden border border-white/5 mb-8">
+             <View className="h-48 bg-gray-600 relative">
+               <View className="absolute top-4 right-4 bg-dark-accent/80 px-3 py-1.5 rounded-full border border-dark-teal/30">
+                 <Text className="text-dark-teal text-xs font-body-bold">Confirmé</Text>
+               </View>
+             </View>
+             <View className="p-5">
+               <Text className="text-white text-lg font-body-bold mb-1">Grand Hyatt Hotel</Text>
+               <Text className="text-gray-400 text-sm font-body mb-4">Paris, France</Text>
+               
+               <View className="flex-row items-center justify-between border-t border-white/5 pt-4">
+                 <View>
+                   <Text className="text-gray-500 text-xs font-body mb-1">Arrivée</Text>
+                   <Text className="text-white font-body-bold">25 Déc, 2024</Text>
+                 </View>
+                 <View className="items-end">
+                   <Text className="text-gray-500 text-xs font-body mb-1">Départ</Text>
+                   <Text className="text-white font-body-bold">30 Déc, 2024</Text>
+                 </View>
+               </View>
+             </View>
+          </View>
+
+          {/* Help section */}
+          <View className="bg-dark-surface rounded-3xl overflow-hidden mb-12 border border-white/5">
+            <SettingsRow icon="help-circle-outline" label="Aide & FAQ" showDivider />
+            <SettingsRow icon="headset-outline" label="Contacter le support" showDivider={false} />
+          </View>
+
+          {/* Logout & Delete */}
           <TouchableOpacity 
             onPress={handleLogout}
-            className="mt-12 flex-row items-center justify-center bg-gray-50 py-4 rounded-xl border border-gray-100"
-            activeOpacity={0.7}
+            className="bg-red-500/10 py-5 rounded-2xl border border-red-500/20 flex-row items-center justify-center mb-4"
           >
-            <Ionicons name="log-out-outline" size={20} color="#4B5563" />
-            <Text className="text-gray-600 font-body-bold ml-2">Se déconnecter</Text>
+            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+            <Text className="text-red-500 font-body-bold ml-2">Déconnexion</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={handleDeleteAccount}
+            className="py-2 items-center"
+          >
+            <Text className="text-gray-600 font-body-medium text-xs">Supprimer mon compte</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      {/* Modals remain the same ... */}
-      {/* Edit Profile Modal */}
+      {/* Modals updated to Dark Theme */}
       <Modal
         animationType="slide"
         transparent={true}
         visible={editModalVisible}
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View className="flex-1 justify-end bg-black/50">
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="bg-white rounded-t-[40px] px-6 pt-8 pb-10">
+        <View className="flex-1 justify-end bg-black/60">
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+            className="flex-1 bg-dark-bg rounded-t-[40px] px-6 pt-8 pb-10 border-t border-white/5"
+          >
             <View className="flex-row items-center justify-between mb-8">
-              <Text className="text-gray-900 text-xl font-body-bold">Modifier le profil</Text>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)} className="w-8 h-8 items-center justify-center">
-                <Ionicons name="close" size={24} color="#9CA3AF" />
+              <Text className="text-white text-xl font-body-bold">Modifier le profil</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)} className="w-10 h-10 items-center justify-center rounded-full bg-white/5">
+                <Ionicons name="close" size={24} color="white" />
               </TouchableOpacity>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView 
+              className="flex-1"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ flexGrow: 1 }}
+            >
               <InputField label="Nom complet" value={fullName} onChangeText={setFullName} />
               <InputField label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" />
               <InputField label="Téléphone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-              <TouchableOpacity onPress={handleUpdateProfile} disabled={isUpdating} className={`bg-primary py-4 rounded-xl items-center justify-center flex-row mt-4 ${isUpdating ? 'opacity-70' : ''}`} activeOpacity={0.8}>
+              <TouchableOpacity onPress={handleUpdateProfile} disabled={isUpdating} className={`bg-dark-teal py-4 rounded-2xl items-center justify-center flex-row mt-4 ${isUpdating ? 'opacity-70' : ''}`} activeOpacity={0.8}>
                 {isUpdating ? <ActivityIndicator color="white" className="mr-2" /> : <Ionicons name="save-outline" size={20} color="white" className="mr-2" />}
                 <Text className="text-white font-body-bold text-base ml-2">Enregistrer les modifications</Text>
               </TouchableOpacity>
@@ -280,22 +377,28 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      {/* Change Password Modal */}
       <Modal
         animationType="slide"
         transparent={true}
         visible={passwordModalVisible}
         onRequestClose={() => setPasswordModalVisible(false)}
       >
-        <View className="flex-1 justify-end bg-black/50">
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="bg-white rounded-t-[40px] px-6 pt-8 pb-10">
+        <View className="flex-1 justify-end bg-black/60">
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+            className="flex-1 bg-dark-bg rounded-t-[40px] px-6 pt-8 pb-10 border-t border-white/5"
+          >
             <View className="flex-row items-center justify-between mb-8">
-              <Text className="text-gray-900 text-xl font-body-bold">Modifier le mot de passe</Text>
-              <TouchableOpacity onPress={() => setPasswordModalVisible(false)} className="w-8 h-8 items-center justify-center">
-                <Ionicons name="close" size={24} color="#9CA3AF" />
+              <Text className="text-white text-xl font-body-bold">Modifier le mot de passe</Text>
+              <TouchableOpacity onPress={() => setPasswordModalVisible(false)} className="w-10 h-10 items-center justify-center rounded-full bg-white/5">
+                <Ionicons name="close" size={24} color="white" />
               </TouchableOpacity>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView 
+              className="flex-1"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ flexGrow: 1 }}
+            >
               <InputField 
                 label="Mot de passe actuel" 
                 value={currentPassword} 
@@ -320,16 +423,16 @@ export default function ProfileScreen() {
               <TouchableOpacity 
                 onPress={handleChangePassword} 
                 disabled={isChangingPassword} 
-                className={`bg-primary py-4 rounded-xl items-center justify-center flex-row mt-4 ${isChangingPassword ? 'opacity-70' : ''}`} 
+                className={`bg-dark-teal py-4 rounded-2xl items-center justify-center flex-row mt-4 ${isChangingPassword ? 'opacity-70' : ''}`} 
                 activeOpacity={0.8}
               >
                 {isChangingPassword ? <ActivityIndicator color="white" className="mr-2" /> : <Ionicons name="lock-open-outline" size={20} color="white" className="mr-2" />}
-                <Text className="text-white font-body-bold text-base ml-2">Mettre à jour le mot de passe</Text>
+                <Text className="text-white font-body-bold text-base ml-2">Mettre à jour</Text>
               </TouchableOpacity>
             </ScrollView>
           </KeyboardAvoidingView>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }

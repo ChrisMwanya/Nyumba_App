@@ -7,6 +7,13 @@ module.exports = {
     extend: {
       colors: {
         primary: '#1A306C',
+        dark: {
+          bg: '#0F1721',
+          surface: '#1B2531',
+          accent: '#0C4A4D',
+          teal: '#00BFA5',
+          card: '#1B2531',
+        }
       },
       fontFamily: {
         heading: ['PumpDemiBold'],
