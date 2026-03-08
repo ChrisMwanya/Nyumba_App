@@ -79,3 +79,20 @@ export function getMe(accessToken: string): Promise<{ user: AuthUser }> {
     token: accessToken,
   });
 }
+
+// POST /auth/change-password (Future/Assumed)
+export function changePassword(accessToken: string, payload: any): Promise<{ message: string }> {
+  return apiRequest('/auth/change-password', {
+    method: 'POST',
+    token: accessToken,
+    body: payload,
+  });
+}
+
+// DELETE /auth/delete-account (Future/Assumed)
+export function deleteAccount(accessToken: string): Promise<{ message: string }> {
+  return apiRequest('/auth/delete-account', {
+    method: 'DELETE',
+    token: accessToken,
+  });
+}
