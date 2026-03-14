@@ -25,7 +25,7 @@ export const unstable_settings = {
 };
 
 function AppNavigator() {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const colorScheme = useColorScheme();
   const [splashDone, setSplashDone] = useState(false);
 
@@ -43,7 +43,11 @@ function AppNavigator() {
       setTimeout(() => {
         setSplashDone(true);
         if (!authLoading) {
-          router.replace(isAuthenticated ? '/(tabs)' : ('/(auth)/login' as any));
+          if (isAuthenticated) {
+            router.replace(user?.emailVerifiedAt ? '/(tabs)' : ('/(auth)/verify-otp' as any));
+          } else {
+            router.replace('/(auth)/login' as any);
+          }
         }
       }, 2000);
     }
@@ -53,9 +57,13 @@ function AppNavigator() {
   // Redirection après authLoading résolu (si le splash est déjà terminé)
   useEffect(() => {
     if (splashDone && !authLoading) {
-      router.replace(isAuthenticated ? '/(tabs)' : ('/(auth)/login' as any));
+      if (isAuthenticated) {
+        router.replace(user?.emailVerifiedAt ? '/(tabs)' : ('/(auth)/verify-otp' as any));
+      } else {
+        router.replace('/(auth)/login' as any);
+      }
     }
-  }, [authLoading, isAuthenticated, splashDone]);
+  }, [authLoading, isAuthenticated, splashDone, user]);
 
   if (!splashDone || !fontsLoaded) {
     return <SplashLoader />;

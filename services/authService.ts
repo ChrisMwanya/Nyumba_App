@@ -116,3 +116,19 @@ export function resetPassword(payload: {
     body: payload,
   });
 }
+
+// POST /auth/verify-otp
+export function verifyOtp(email: string, otp: string): Promise<{ message: string; user?: AuthUser; token?: TokenInfo }> {
+  return apiRequest('/auth/verify-otp', {
+    method: 'POST',
+    body: { email, otp },
+  });
+}
+
+// POST /auth/resend-otp
+export function resendOtp(email: string): Promise<{ message: string }> {
+  return apiRequest('/auth/resend-otp', {
+    method: 'POST',
+    body: { email },
+  });
+}

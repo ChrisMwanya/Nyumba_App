@@ -24,6 +24,7 @@ type AuthContextType = {
     password_confirmation: string;
   }) => Promise<void>;
   signOut: () => Promise<void>;
+  updateUser: (user: AuthUser) => void;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -73,7 +74,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await SecureStore.setItemAsync(SECURE_KEYS.REFRESH_TOKEN, data.refresh_token.token);
     setAccessToken(data.access_token.token);
     setUser(data.user);
-    router.replace('/(tabs)' as any);
+    if (data.user?.emailVerifiedAt) {
+      router.replace('/(tabs)' as any);
+    } else {
+      router.replace('/(auth)/verify-otp' as any);
+    }
   }, []);
 
   const signUp = useCallback(async (payload: {
@@ -89,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await SecureStore.setItemAsync(SECURE_KEYS.ACCESS_TOKEN, data.token.token);
     setAccessToken(data.token.token);
     setUser(data.user);
-    router.replace('/(tabs)' as any);
+    router.replace('/(auth)/verify-otp' as any);
   }, []);
 
   const signOut = useCallback(async () => {
@@ -117,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signIn,
         signUp,
         signOut,
+        updateUser: setUser,
       }}
     >
       {children}
