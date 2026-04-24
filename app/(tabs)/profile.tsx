@@ -20,7 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
-  const { user, signOut, accessToken } = useAuth();
+  const { user, signOut, accessToken, updateUser } = useAuth();
   const router = useRouter();
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
@@ -81,19 +81,27 @@ export default function ProfileScreen() {
   };
 
   const handleUpdateProfile = async () => {
-    if (!fullName || !email) {
-      Alert.alert('Erreur', 'Le nom et l\'email sont requis.');
+    if (!fullName) {
+      Alert.alert('Erreur', 'Le nom complet est requis.');
       return;
     }
 
     setIsUpdating(true);
     try {
-      // Simulation API Update Profile
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      Alert.alert('Succès', 'Votre profil a été mis à jour (simulation).');
-      setEditModalVisible(false);
-    } catch (error) {
-      Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour.');
+      if (accessToken) {
+        const response = await authService.updateProfile(accessToken, {
+          fullName : fullName ,
+          phone: phone || undefined,
+        });
+        
+        // Mettre à jour le state utilisateur global
+        updateUser(response.user);
+        
+        Alert.alert('Succès', 'Votre profil a été mis à jour avec succès.');
+        setEditModalVisible(false);
+      }
+    } catch (error: any) {
+      Alert.alert('Erreur', error.message || 'Une erreur est survenue lors de la mise à jour.');
     } finally {
       setIsUpdating(false);
     }
@@ -120,8 +128,8 @@ export default function ProfileScreen() {
       if (accessToken) {
         await authService.changePassword(accessToken, {
           currentPassword,
-          newPassword,
-          newPassword_confirmation: confirmPassword
+          password: newPassword,
+          passwordConfirmation: confirmPassword
         });
         Alert.alert('Succès', 'Votre mot de passe a été modifié avec succès.');
         setPasswordModalVisible(false);
@@ -184,7 +192,7 @@ export default function ProfileScreen() {
     </TouchableOpacity>
   );
 
-  const InputField = ({ label, value, onChangeText, keyboardType = 'default' as any, placeholder, secureTextEntry }: any) => (
+  const InputField = ({ label, value, onChangeText, keyboardType = 'default' as any, placeholder, secureTextEntry, editable = true }: any) => (
     <View className="mb-5">
       <Text className="text-gray-400 text-sm font-body-medium mb-2 ml-1">{label}</Text>
       <View className="relative">
@@ -194,7 +202,8 @@ export default function ProfileScreen() {
           keyboardType={keyboardType}
           placeholder={placeholder}
           secureTextEntry={secureTextEntry}
-          className="bg-dark-surface border border-white/5 px-4 py-4 rounded-xl text-white font-body"
+          editable={editable}
+          className={`bg-dark-surface border border-white/5 px-4 py-4 rounded-xl text-white font-body ${!editable ? 'opacity-50 text-gray-400' : ''}`}
           placeholderTextColor="#6B7280"
         />
         {label.toLowerCase().includes('pass') && (
@@ -366,7 +375,7 @@ export default function ProfileScreen() {
               contentContainerStyle={{ flexGrow: 1 }}
             >
               <InputField label="Nom complet" value={fullName} onChangeText={setFullName} />
-              <InputField label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" />
+              <InputField label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" editable={false} />
               <InputField label="Téléphone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
               <TouchableOpacity onPress={handleUpdateProfile} disabled={isUpdating} className={`bg-dark-teal py-4 rounded-2xl items-center justify-center flex-row mt-4 ${isUpdating ? 'opacity-70' : ''}`} activeOpacity={0.8}>
                 {isUpdating ? <ActivityIndicator color="white" className="mr-2" /> : <Ionicons name="save-outline" size={20} color="white" className="mr-2" />}

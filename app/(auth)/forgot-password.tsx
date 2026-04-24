@@ -29,7 +29,9 @@ export default function ForgotPasswordScreen() {
     setError(null);
     setLoading(true);
     try {
-      await authService.forgotPassword(identifier.trim());
+      const trimmed = identifier.trim();
+      const isEmail = /\S+@\S+\.\S+/.test(trimmed);
+      await authService.forgotPassword(trimmed, isEmail ? 'email' : 'phone');
       setSuccess(true);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -63,7 +65,7 @@ export default function ForgotPasswordScreen() {
        
           <Text className="text-white text-3xl font-body-bold">Mot de passe oublié</Text>
           <Text className="text-gray-400 text-sm font-body mt-2">
-            Entrez votre email ou votre téléphone pour recevoir un lien de réinitialisation.
+            Entrez votre email ou votre téléphone pour recevoir un code de réinitialisation.
           </Text>
         </View>
 
@@ -126,12 +128,25 @@ export default function ForgotPasswordScreen() {
           ) : (
             <View className="items-center justify-center py-10">
               <View className="w-20 h-20 bg-dark-teal/20 rounded-full items-center justify-center mb-6">
-                <Ionicons name="checkmark-circle-outline" size={48} color="#00BFA5" />
+                <Ionicons name="mail-outline" size={48} color="#00BFA5" />
               </View>
-              <Text className="text-white text-xl font-body-bold text-center mb-4">Lien envoyé !</Text>
+              <Text className="text-white text-xl font-body-bold text-center mb-4">Code envoyé !</Text>
               <Text className="text-gray-400 text-center font-body mb-10 leading-6">
-                Consultez vos messages sur {identifier} pour réinitialiser votre mot de passe.
+                Un code de réinitialisation a été envoyé à{' '}
+                <Text className="text-white font-body-bold">{identifier}</Text>.{'\n'}
+                Entrez-le sur la page suivante.
               </Text>
+              <TouchableOpacity
+                onPress={() =>
+                  router.replace({
+                    pathname: '/(auth)/reset-password' as any,
+                    params: { identifier: identifier.trim() },
+                  })
+                }
+                className="bg-dark-teal w-full py-5 rounded-2xl items-center mb-4"
+              >
+                <Text className="text-white font-body-bold text-base">Saisir le code</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => router.replace('/(auth)/login' as any)}
                 className="bg-white/5 border border-white/10 px-8 py-4 rounded-2xl"

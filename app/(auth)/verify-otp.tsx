@@ -1,4 +1,5 @@
 import { ApiError, useAuth } from '@/contexts/AuthContext';
+import type { VerifyOtpResponse } from '@/services/authService';
 import * as authService from '@/services/authService';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -15,7 +16,7 @@ import {
 } from 'react-native';
 
 export default function VerifyOtpScreen() {
-  const { user, updateUser } = useAuth();
+  const { pendingVerification, completeSignIn } = useAuth();
   const [otp, setOtp] = useState('');
   const [focused, setFocused] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,24 +25,24 @@ export default function VerifyOtpScreen() {
   const [resendSuccess, setResendSuccess] = useState(false);
 
   const handleVerify = async () => {
-    if (!otp || otp.length < 4) {
-      setError('Veuillez entrer un code valide.');
+    if (!otp || otp.length !== 6) {
+      setError('Veuillez entrer un code valide à 6 chiffres.');
       return;
     }
-    if (!user?.email) {
-      setError('Erreur technique: email introuvable.');
+    if (!pendingVerification?.destination) {
+      setError('Erreur technique: informations de vérification introuvables. Veuillez vous reconnecter.');
       return;
     }
     setError(null);
     setLoading(true);
     try {
-      const data = await authService.verifyOtp(user.email, otp.trim());
-      if (data.user) {
-        updateUser(data.user);
-      } else {
-        updateUser({ ...user, emailVerifiedAt: new Date().toISOString() });
-      }
-      // router.replace is handled automatically by _layout.tsx once user state updates
+      const data: VerifyOtpResponse = await authService.verifyOtp(
+        pendingVerification.destination,
+        otp.trim(),
+        pendingVerification.verificationMethod
+      );
+      await completeSignIn(data);
+
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message || 'Code invalide.');
@@ -54,12 +55,15 @@ export default function VerifyOtpScreen() {
   };
 
   const handleResend = async () => {
-    if (!user?.email) return;
+    if (!pendingVerification?.destination) return;
     setResendLoading(true);
     setError(null);
     setResendSuccess(false);
     try {
-      await authService.resendOtp(user.email);
+      await authService.resendOtp(
+        pendingVerification.destination,
+        pendingVerification.verificationMethod
+      );
       setResendSuccess(true);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -94,8 +98,8 @@ export default function VerifyOtpScreen() {
        
           <Text className="text-white text-3xl font-body-bold">Vérification OTP</Text>
           <Text className="text-gray-400 text-sm font-body mt-2">
-            Nous avons envoyé un code de vérification à l'adresse email : 
-            <Text className="text-white font-body-bold"> {user?.email}</Text>
+            Nous avons envoyé un code de vérification à l'adresse : 
+            <Text className="text-white font-body-bold"> {pendingVerification?.destination || 'votre email'}</Text>
           </Text>
         </View>
 

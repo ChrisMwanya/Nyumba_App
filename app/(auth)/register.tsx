@@ -59,7 +59,7 @@ export default function RegisterScreen() {
         email: email.trim(),
         phone: phone.trim() || undefined,
         password,
-        password_confirmation: confirmPassword,
+        passwordConfirmation: confirmPassword,
       });
     } catch (err) {
       if (err instanceof ApiError) {
@@ -69,7 +69,7 @@ export default function RegisterScreen() {
             email: 'email',
             phone: 'phone',
             password: 'password',
-            password_confirmation: 'confirmPassword',
+            passwordConfirmation: 'confirmPassword',
           };
           const mapped: FieldErrors = {};
           for (const e of err.errors) {

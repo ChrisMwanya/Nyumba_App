@@ -16,18 +16,28 @@ import {
 } from 'react-native';
 
 export default function ResetPasswordScreen() {
-  const { token, email: emailParam } = useLocalSearchParams<{ token: string; email: string }>();
-  
+  // `identifier` est passé depuis forgot-password.tsx
+  const { identifier } = useLocalSearchParams<{ identifier: string }>();
+
+  const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
-  const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  const borderClass = (field: string) =>
+    focusedField === field ? 'border-dark-teal' : 'border-white/5';
+  const iconColor = (field: string) => (focusedField === field ? '#00BFA5' : '#6B7280');
+
   const handleResetPassword = async () => {
+    if (!code || code.length !== 6) {
+      setError('Veuillez entrer un code valide à 6 chiffres.');
+      return;
+    }
     if (!password || password.length < 8) {
       setError('Le mot de passe doit contenir au moins 8 caractères.');
       return;
@@ -36,24 +46,25 @@ export default function ResetPasswordScreen() {
       setError('Les mots de passe ne correspondent pas.');
       return;
     }
-    if (!token || !emailParam) {
-      setError('Lien de réinitialisation invalide ou expiré.');
+    if (!identifier) {
+      setError('Informations de réinitialisation invalides. Recommencez.');
       return;
     }
 
     setError(null);
     setLoading(true);
     try {
+      const isEmail = /\S+@\S+\.\S+/.test(identifier);
       await authService.resetPassword({
-        email: emailParam,
-        token: token,
-        password: password,
-        password_confirmation: confirmPassword,
+        ...(isEmail ? { email: identifier } : { phone: identifier }),
+        code: code.trim(),
+        password,
+        passwordConfirmation: confirmPassword,
       });
       setSuccess(true);
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(err.message || 'Une erreur est survenue.');
+        setError(err.message || 'Code invalide ou expiré.');
       } else {
         setError('Impossible de joindre le serveur. Vérifiez votre connexion.');
       }
@@ -74,9 +85,17 @@ export default function ResetPasswordScreen() {
       >
         {/* En-tête */}
         <View className="bg-dark-bg px-6 pt-16 pb-8">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-full bg-white/5 items-center justify-center mb-6"
+          >
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
           <Text className="text-white text-3xl font-body-bold">Nouveau mot de passe</Text>
           <Text className="text-gray-400 text-sm font-body mt-2">
-            Créez un nouveau mot de passe sécurisé pour votre compte.
+            Entrez le code reçu sur{' '}
+            <Text className="text-white font-body-bold">{identifier}</Text>
+            {' '}et votre nouveau mot de passe.
           </Text>
         </View>
 
@@ -92,31 +111,53 @@ export default function ResetPasswordScreen() {
                 </View>
               )}
 
+              {/* Code OTP */}
+              <View className="mb-6">
+                <Text className="text-gray-400 text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
+                  Code de vérification *
+                </Text>
+                <View className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${borderClass('code')}`}>
+                  <Ionicons
+                    name="keypad-outline"
+                    size={20}
+                    color={iconColor('code')}
+                    style={{ marginRight: 12 }}
+                  />
+                  <TextInput
+                    className="flex-1 text-white text-base font-body tracking-widest"
+                    placeholder="123456"
+                    placeholderTextColor="#4B5563"
+                    value={code}
+                    onChangeText={(v) => { setCode(v); setError(null); }}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    onFocus={() => setFocusedField('code')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </View>
+              </View>
+
               {/* Nouveau mot de passe */}
               <View className="mb-6">
                 <Text className="text-gray-400 text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
-                  Nouveau mot de passe
+                  Nouveau mot de passe *
                 </Text>
-                <View
-                  className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${
-                    passwordFocused ? 'border-dark-teal' : 'border-white/5'
-                  }`}
-                >
+                <View className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${borderClass('password')}`}>
                   <Ionicons
                     name="lock-closed-outline"
                     size={20}
-                    color={passwordFocused ? '#00BFA5' : '#6B7280'}
+                    color={iconColor('password')}
                     style={{ marginRight: 12 }}
                   />
                   <TextInput
                     className="flex-1 text-white text-base font-body"
-                    placeholder="••••••••"
+                    placeholder="Minimum 8 caractères"
                     placeholderTextColor="#4B5563"
                     value={password}
                     onChangeText={(v) => { setPassword(v); setError(null); }}
                     secureTextEntry={!showPassword}
-                    onFocus={() => setPasswordFocused(true)}
-                    onBlur={() => setPasswordFocused(false)}
+                    onFocus={() => setFocusedField('password')}
+                    onBlur={() => setFocusedField(null)}
                   />
                   <Pressable onPress={() => setShowPassword(!showPassword)}>
                     <Ionicons
@@ -128,20 +169,16 @@ export default function ResetPasswordScreen() {
                 </View>
               </View>
 
-              {/* Confirmation */}
+              {/* Confirmation mot de passe */}
               <View className="mb-10">
                 <Text className="text-gray-400 text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
-                  Confirmer le mot de passe
+                  Confirmer le mot de passe *
                 </Text>
-                <View
-                  className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${
-                    confirmPasswordFocused ? 'border-dark-teal' : 'border-white/5'
-                  }`}
-                >
+                <View className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${borderClass('confirm')}`}>
                   <Ionicons
                     name="shield-checkmark-outline"
                     size={20}
-                    color={confirmPasswordFocused ? '#00BFA5' : '#6B7280'}
+                    color={iconColor('confirm')}
                     style={{ marginRight: 12 }}
                   />
                   <TextInput
@@ -150,10 +187,17 @@ export default function ResetPasswordScreen() {
                     placeholderTextColor="#4B5563"
                     value={confirmPassword}
                     onChangeText={(v) => { setConfirmPassword(v); setError(null); }}
-                    secureTextEntry={!showPassword}
-                    onFocus={() => setConfirmPasswordFocused(true)}
-                    onBlur={() => setConfirmPasswordFocused(false)}
+                    secureTextEntry={!showConfirmPassword}
+                    onFocus={() => setFocusedField('confirm')}
+                    onBlur={() => setFocusedField(null)}
                   />
+                  <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                    <Ionicons
+                      name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color="#6B7280"
+                    />
+                  </Pressable>
                 </View>
               </View>
 
@@ -177,9 +221,12 @@ export default function ResetPasswordScreen() {
               <View className="w-20 h-20 bg-dark-teal/20 rounded-full items-center justify-center mb-6">
                 <Ionicons name="checkmark-circle-outline" size={48} color="#00BFA5" />
               </View>
-              <Text className="text-white text-xl font-body-bold text-center mb-4">Mot de passe réinitialisé !</Text>
+              <Text className="text-white text-xl font-body-bold text-center mb-4">
+                Mot de passe réinitialisé !
+              </Text>
               <Text className="text-gray-400 text-center font-body mb-10 leading-6">
-                Votre mot de passe a été mis à jour avec succès. Vous pouvez maintenant vous connecter.
+                Votre mot de passe a été mis à jour avec succès.{'\n'}
+                Vous pouvez maintenant vous connecter.
               </Text>
               <TouchableOpacity
                 onPress={() => router.replace('/(auth)/login' as any)}

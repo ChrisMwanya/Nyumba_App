@@ -1,4 +1,4 @@
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3333';
+const BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3333') + '/api/v1';
 
 
 type RequestOptions = {
@@ -35,10 +35,40 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  const data = await response.json().catch(() => ({}));
+  const raw = await response.json().catch(() => ({}));
+
+  // L'API Adonis wrappe les réponses dans { data: { ... } } via serialize()
+  const data = raw?.data !== undefined ? raw.data : raw;
 
   if (!response.ok) {
-    throw new ApiError(response.status, data.errors, data.message ?? 'Erreur serveur');
+    const message = data?.error ?? data?.message ?? raw?.message ?? 'Erreur serveur';
+    throw new ApiError(response.status, data?.errors ?? raw?.errors, message);
+  }
+
+  return data as T;
+}
+
+export async function apiRequestMultipart<T>(path: string, formData: FormData, token?: string): Promise<T> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  const raw = await response.json().catch(() => ({}));
+  const data = raw?.data !== undefined ? raw.data : raw;
+
+  if (!response.ok) {
+    const message = data?.error ?? data?.message ?? raw?.message ?? 'Erreur serveur';
+    throw new ApiError(response.status, data?.errors ?? raw?.errors, message);
   }
 
   return data as T;

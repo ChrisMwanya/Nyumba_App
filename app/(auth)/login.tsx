@@ -44,6 +44,8 @@ export default function LoginScreen() {
           setGlobalError('Une erreur est survenue. Réessayez plus tard.');
         }
       } else {
+        console.log("erreur" + err);
+        
         setGlobalError('Impossible de joindre le serveur. Vérifiez votre connexion.');
       }
     } finally {

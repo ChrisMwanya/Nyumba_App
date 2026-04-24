@@ -44,7 +44,7 @@ function AppNavigator() {
         setSplashDone(true);
         if (!authLoading) {
           if (isAuthenticated) {
-            router.replace(user?.emailVerifiedAt ? '/(tabs)' : ('/(auth)/verify-otp' as any));
+            router.replace(user?.status === 'active' ? '/(tabs)' : ('/(auth)/verify-otp' as any));
           } else {
             router.replace('/(auth)/login' as any);
           }
@@ -58,7 +58,7 @@ function AppNavigator() {
   useEffect(() => {
     if (splashDone && !authLoading) {
       if (isAuthenticated) {
-        router.replace(user?.emailVerifiedAt ? '/(tabs)' : ('/(auth)/verify-otp' as any));
+        router.replace(user?.status === 'active' ? '/(tabs)' : ('/(auth)/verify-otp' as any));
       } else {
         router.replace('/(auth)/login' as any);
       }
