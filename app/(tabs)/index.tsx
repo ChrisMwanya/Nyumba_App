@@ -162,7 +162,7 @@ export default function HomeScreen() {
               <Ionicons name="search-outline" size={20} color="#6B7280" />
               <TextInput 
                 className="flex-1 text-white font-body ml-3 h-10"
-                placeholder={language === 'fr' ? 'Où voulez-vous aller ?' : 'Where do you want to go?'}
+                placeholder={language === 'fr' ? 'Dites moi ce que vous cherchez' : 'Tell me what you are looking for'}
                 placeholderTextColor="#6B7280"
                 value={searchQuery}
                 onChangeText={handleSearch}

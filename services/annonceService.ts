@@ -51,6 +51,7 @@ export type Annonce = {
   annonceurId: number;
   category?: Category;
   ville?: Ville;
+  commune?: { id: number; name: string };
   annonceur?: Annonceur;
   images?: AnnonceImage[];
   createdAt: string;

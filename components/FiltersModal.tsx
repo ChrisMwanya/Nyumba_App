@@ -6,11 +6,13 @@ import {
   TouchableOpacity, 
   ScrollView, 
   TextInput,
-  Switch
+  Switch,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Ville } from '@/services/annonceService';
 import { getVilles } from '@/services/villeService';
+import { getCommunes, Commune } from '@/services/communeService';
 
 type FiltersModalProps = {
   visible: boolean;
@@ -21,9 +23,13 @@ type FiltersModalProps = {
 
 export default function FiltersModal({ visible, onClose, onApply, initialFilters }: FiltersModalProps) {
   const [villes, setVilles] = useState<Ville[]>([]);
+  const [communes, setCommunes] = useState<Commune[]>([]);
+  const [loadingCommunes, setLoadingCommunes] = useState(false);
+  
   const [minPrice, setMinPrice] = useState(initialFilters.min_price?.toString() || '');
   const [maxPrice, setMaxPrice] = useState(initialFilters.max_price?.toString() || '');
   const [selectedVilleId, setSelectedVilleId] = useState<number | null>(initialFilters.ville_id || null);
+  const [selectedCommuneId, setSelectedCommuneId] = useState<number | null>(initialFilters.commune_id || null);
   const [minRating, setMinRating] = useState(initialFilters.min_rating || 0);
   const [onlyAvailable, setOnlyAvailable] = useState(initialFilters.status === 'available');
 
@@ -33,11 +39,25 @@ export default function FiltersModal({ visible, onClose, onApply, initialFilters
     }
   }, [visible]);
 
+  useEffect(() => {
+    if (selectedVilleId) {
+      setLoadingCommunes(true);
+      getCommunes(selectedVilleId)
+        .then(setCommunes)
+        .catch(console.error)
+        .finally(() => setLoadingCommunes(false));
+    } else {
+      setCommunes([]);
+      setSelectedCommuneId(null);
+    }
+  }, [selectedVilleId]);
+
   const handleApply = () => {
     onApply({
       min_price: minPrice ? parseInt(minPrice) : undefined,
       max_price: maxPrice ? parseInt(maxPrice) : undefined,
       ville_id: selectedVilleId,
+      commune_id: selectedCommuneId,
       min_rating: minRating || undefined,
       status: onlyAvailable ? 'available' : undefined,
     });
@@ -48,6 +68,7 @@ export default function FiltersModal({ visible, onClose, onApply, initialFilters
     setMinPrice('');
     setMaxPrice('');
     setSelectedVilleId(null);
+    setSelectedCommuneId(null);
     setMinRating(0);
     setOnlyAvailable(true);
   };
@@ -123,6 +144,38 @@ export default function FiltersModal({ visible, onClose, onApply, initialFilters
                 ))}
               </ScrollView>
             </View>
+
+            {/* Commune Selection (Visible only if Ville is selected) */}
+            {selectedVilleId && (
+              <View className="mb-8">
+                <Text className="text-white text-lg font-body-bold mb-4">Commune</Text>
+                {loadingCommunes ? (
+                  <ActivityIndicator color="#00BFA5" />
+                ) : (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <TouchableOpacity
+                      onPress={() => setSelectedCommuneId(null)}
+                      className={`mr-3 px-6 py-3 rounded-2xl border ${
+                        selectedCommuneId === null ? 'bg-dark-teal border-dark-teal' : 'bg-dark-surface border-white/5'
+                      }`}
+                    >
+                      <Text className={`font-body-medium ${selectedCommuneId === null ? 'text-white' : 'text-gray-400'}`}>Toutes</Text>
+                    </TouchableOpacity>
+                    {communes.map((commune) => (
+                      <TouchableOpacity
+                        key={commune.id}
+                        onPress={() => setSelectedCommuneId(commune.id)}
+                        className={`mr-3 px-6 py-3 rounded-2xl border ${
+                          selectedCommuneId === commune.id ? 'bg-dark-teal border-dark-teal' : 'bg-dark-surface border-white/5'
+                        }`}
+                      >
+                        <Text className={`font-body-medium ${selectedCommuneId === commune.id ? 'text-white' : 'text-gray-400'}`}>{commune.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+            )}
 
             {/* Rating */}
             <View className="mb-8">

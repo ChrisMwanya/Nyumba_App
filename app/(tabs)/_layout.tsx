@@ -38,20 +38,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="search"
+        name="annonces"
         options={{
-          title: 'Recherche',
+          title: 'Annonces',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "search" : "search-outline"} size={22} color={color} />
+            <Ionicons name={focused ? "list" : "list-outline"} size={22} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="favorites"
+        name="reservations"
         options={{
-          title: 'Favoris',
+          title: 'Réservations',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "heart" : "heart-outline"} size={22} color={color} />
+            <Ionicons name={focused ? "calendar" : "calendar-outline"} size={22} color={color} />
           ),
         }}
       />
@@ -60,7 +60,7 @@ export default function TabsLayout() {
         options={{
           title: 'Profil',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "person" : "person-outline"} size={22} color={color} />
+            <Ionicons name={focused ? "person-circle" : "person-circle-outline"} size={22} color={color} />
           ),
         }}
       />
