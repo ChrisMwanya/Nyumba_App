@@ -38,7 +38,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const raw = await response.json().catch(() => ({}));
 
   // L'API Adonis wrappe les réponses dans { data: { ... } } via serialize()
-  const data = raw?.data !== undefined ? raw.data : raw;
+  // Mais la pagination Lucid retourne { data: [...], meta: {...} }
+  const data = (raw?.data !== undefined && raw?.meta === undefined) ? raw.data : raw;
 
   if (!response.ok) {
     const message = data?.error ?? data?.message ?? raw?.message ?? 'Erreur serveur';
@@ -64,7 +65,7 @@ export async function apiRequestMultipart<T>(path: string, formData: FormData, t
   });
 
   const raw = await response.json().catch(() => ({}));
-  const data = raw?.data !== undefined ? raw.data : raw;
+  const data = (raw?.data !== undefined && raw?.meta === undefined) ? raw.data : raw;
 
   if (!response.ok) {
     const message = data?.error ?? data?.message ?? raw?.message ?? 'Erreur serveur';
