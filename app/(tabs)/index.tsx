@@ -21,6 +21,7 @@ import {
 } from '@/services/annonceService';
 import { getCategories } from '@/services/categoryService';
 import FiltersModal from '@/components/FiltersModal';
+import { router } from 'expo-router';
 
 // Icon mapping for categories
 const CATEGORY_ICONS: Record<string, any> = {
@@ -90,7 +91,6 @@ export default function HomeScreen() {
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);
-    // Debounce search could be added here
   };
 
   const toggleGPS = async () => {
@@ -119,15 +119,9 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1 bg-dark-bg">
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00BFA5" />
-        }
-      >
-        {/* Header */}
-        <View className="px-6 pt-16">
+      {/* Sticky Header Section */}
+      <View className="bg-dark-bg pt-16 pb-4 z-20">
+        <View className="px-6">
           <View className="flex-row items-center justify-between mb-8">
              <View>
                <Text className="text-gray-400 text-sm font-body">
@@ -156,8 +150,8 @@ export default function HomeScreen() {
              </View>
           </View>
 
-          {/* Search Bar */}
-          <View className="flex-row items-center mb-8 gap-3">
+          {/* Search Bar + Controls */}
+          <View className="flex-row items-center mb-6 gap-2">
             <View className="flex-1 flex-row items-center bg-dark-surface px-4 py-3 rounded-2xl border border-white/5">
               <Ionicons name="search-outline" size={20} color="#6B7280" />
               <TextInput 
@@ -168,6 +162,16 @@ export default function HomeScreen() {
                 onChangeText={handleSearch}
               />
             </View>
+            
+            <TouchableOpacity 
+              onPress={toggleGPS}
+              className={`w-14 h-14 rounded-2xl items-center justify-center border ${
+                useGPS ? 'bg-dark-teal/20 border-dark-teal' : 'bg-dark-surface border-white/5'
+              }`}
+            >
+              <Ionicons name="location-outline" size={22} color={useGPS ? '#00BFA5' : '#6B7280'} />
+            </TouchableOpacity>
+
             <TouchableOpacity 
               onPress={() => setShowFilters(true)}
               className="bg-dark-teal w-14 h-14 rounded-2xl items-center justify-center"
@@ -175,24 +179,10 @@ export default function HomeScreen() {
               <Ionicons name="options-outline" size={24} color="white" />
             </TouchableOpacity>
           </View>
-          
-          {/* GPS Toggle */}
-          <TouchableOpacity 
-            onPress={toggleGPS}
-            className={`flex-row items-center mb-8 px-4 py-3 rounded-2xl border ${
-              useGPS ? 'bg-dark-teal/20 border-dark-teal' : 'bg-dark-surface border-white/5'
-            }`}
-          >
-            <Ionicons name="location-outline" size={20} color={useGPS ? '#00BFA5' : '#6B7280'} />
-            <Text className={`ml-3 font-body flex-1 ${useGPS ? 'text-dark-teal' : 'text-gray-400'}`}>
-              {language === 'fr' ? 'À proximité (GPS)' : 'Nearby (GPS)'}
-            </Text>
-            {useGPS && <Ionicons name="checkmark-circle" size={20} color="#00BFA5" />}
-          </TouchableOpacity>
         </View>
 
-        {/* Categories */}
-        <View className="mb-8">
+        {/* Categories (Still Sticky) */}
+        <View className="mb-2">
            <ScrollView 
              horizontal 
              showsHorizontalScrollIndicator={false}
@@ -200,12 +190,12 @@ export default function HomeScreen() {
            >
               <TouchableOpacity
                 onPress={() => setSelectedCategoryId(null)}
-                className={`mr-4 px-6 py-4 rounded-3xl flex-row items-center border ${
+                className={`mr-3 px-5 py-3 rounded-2xl flex-row items-center border ${
                   selectedCategoryId === null ? 'bg-dark-teal border-dark-teal' : 'bg-dark-surface border-white/5'
                 }`}
               >
-                <Ionicons name="apps-outline" size={18} color={selectedCategoryId === null ? 'white' : '#9CA3AF'} />
-                <Text className={`ml-2 font-body-bold ${selectedCategoryId === null ? 'text-white' : 'text-gray-400'}`}>
+                <Ionicons name="apps-outline" size={16} color={selectedCategoryId === null ? 'white' : '#9CA3AF'} />
+                <Text className={`ml-2 font-body-bold text-xs ${selectedCategoryId === null ? 'text-white' : 'text-gray-400'}`}>
                   {language === 'fr' ? 'Tous' : 'All'}
                 </Text>
               </TouchableOpacity>
@@ -218,17 +208,17 @@ export default function HomeScreen() {
                  <TouchableOpacity
                    key={category.id}
                    onPress={() => setSelectedCategoryId(category.id)}
-                   className={`mr-4 px-6 py-4 rounded-3xl flex-row items-center border ${
+                   className={`mr-3 px-5 py-3 rounded-2xl flex-row items-center border ${
                      isActive ? 'bg-dark-teal border-dark-teal' : 'bg-dark-surface border-white/5'
                    }`}
                  >
                    <Ionicons 
                      name={iconName} 
-                     size={18} 
+                     size={16} 
                      color={isActive ? 'white' : '#9CA3AF'} 
                    />
                    <Text 
-                     className={`ml-2 font-body-bold ${
+                     className={`ml-2 font-body-bold text-xs ${
                        isActive ? 'text-white' : 'text-gray-400'
                      }`}
                    >
@@ -239,8 +229,17 @@ export default function HomeScreen() {
              })}
            </ScrollView>
         </View>
+      </View>
 
-        <View className="px-6">
+      {/* Scrollable Content Section */}
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00BFA5" />
+        }
+      >
+        <View className="px-6 mt-4">
           <View className="flex-row items-center justify-between mb-6">
             <Text className="text-white text-xl font-body-bold">
               {language === 'fr' ? 'Résultats pour vous' : 'Results for you'}
@@ -257,9 +256,10 @@ export default function HomeScreen() {
                   key={annonce.id} 
                   className="bg-dark-surface rounded-[32px] overflow-hidden border border-white/5 mb-6"
                   activeOpacity={0.9}
+                  onPress={() => router.push(`/annonces/${annonce.id}` as any)}
                 >
                    <Image 
-                     source={{ uri: annonce.images?.[0]?.url || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800' }} 
+                     source={{ uri: (annonce.images && annonce.images[0]?.url) || annonce.coverImageUrl || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800' }} 
                      className="h-64 w-full bg-gray-800"
                      resizeMode="cover"
                    />
@@ -276,7 +276,7 @@ export default function HomeScreen() {
                           <Text className="text-white text-xl font-body-bold" numberOfLines={1}>{annonce.title}</Text>
                           <View className="flex-row items-center mt-1">
                             <Ionicons name="location-outline" size={14} color="#6B7280" />
-                            <Text className="text-gray-400 text-xs font-body ml-1">{annonce.ville?.name}, {annonce.address || 'Gombe'}</Text>
+                            <Text className="text-gray-400 text-xs font-body ml-1">{annonce.ville?.name}, {annonce.commune?.name || 'Gombe'}</Text>
                           </View>
                        </View>
                        <View className="bg-dark-teal/10 px-3 py-1 rounded-lg">
@@ -293,7 +293,10 @@ export default function HomeScreen() {
                             {annonce.price} {annonce.currency}
                           </Text>
                        </View>
-                       <TouchableOpacity className="bg-dark-teal px-6 py-4 rounded-2xl">
+                       <TouchableOpacity 
+                         onPress={() => router.push(`/annonces/${annonce.id}` as any)}
+                         className="bg-dark-teal px-6 py-4 rounded-2xl"
+                       >
                          <Text className="text-white font-body-bold">{language === 'fr' ? 'Détails' : 'Details'}</Text>
                        </TouchableOpacity>
                      </View>
@@ -314,7 +317,6 @@ export default function HomeScreen() {
               )}
             </>
           )}
-
         </View>
       </ScrollView>
 

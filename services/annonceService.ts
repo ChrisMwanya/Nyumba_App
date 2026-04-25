@@ -5,7 +5,7 @@ export type Category = {
   name: string;
   slug: string;
   description?: string;
-  icon?: string; // Optional field for UI
+  icon?: string;
 };
 
 export type Ville = {
@@ -42,18 +42,21 @@ export type Annonce = {
   address?: string;
   latitude?: number;
   longitude?: number;
-  avgRating: number;
+  avgRating?: number;
   status: 'available' | 'rented' | 'sold';
   categoryId: number;
   villeId: number;
   communeId?: number;
   userId: number;
   annonceurId: number;
+  coverImageUrl?: string;
   category?: Category;
   ville?: Ville;
   commune?: { id: number; name: string };
   annonceur?: Annonceur;
   images?: AnnonceImage[];
+  avis?: any[];
+  reservations?: any[];
   createdAt: string;
   updatedAt: string;
 };

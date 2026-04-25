@@ -77,6 +77,9 @@ function AppNavigator() {
           <Stack>
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="annonces/[id]" options={{ headerShown: false, presentation: 'card' }} />
+            <Stack.Screen name="annonces/booking" options={{ title: 'Réservation', presentation: 'modal' }} />
+            <Stack.Screen name="annonces/payment" options={{ title: 'Paiement', presentation: 'card' }} />
           </Stack>
           <StatusBar style="light" />
         </GestureHandlerRootView>
