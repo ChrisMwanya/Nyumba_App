@@ -10,6 +10,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Ville } from '@/services/annonceService';
 import { getVilles } from '@/services/villeService';
 import { getCommunes, Commune } from '@/services/communeService';
@@ -22,6 +23,7 @@ type FiltersModalProps = {
 };
 
 export default function FiltersModal({ visible, onClose, onApply, initialFilters }: FiltersModalProps) {
+  const { colors } = useTheme();
   const [villes, setVilles] = useState<Ville[]>([]);
   const [communes, setCommunes] = useState<Commune[]>([]);
   const [loadingCommunes, setLoadingCommunes] = useState(false);
@@ -80,37 +82,39 @@ export default function FiltersModal({ visible, onClose, onApply, initialFilters
       transparent={true}
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-black/60 justify-end">
-        <View className="bg-dark-bg rounded-t-[40px] h-[85%] p-6">
+      <View className="flex-1 justify-end" style={{ backgroundColor: colors.modalOverlay }}>
+        <View style={{ backgroundColor: colors.bg }} className="rounded-t-[40px] h-[85%] p-6">
           <View className="flex-row justify-between items-center mb-8">
-            <Text className="text-white text-2xl font-body-bold">Filtres</Text>
-            <TouchableOpacity onPress={onClose} className="bg-dark-surface p-2 rounded-full">
-              <Ionicons name="close" size={24} color="white" />
+            <Text style={{ color: colors.text }} className="text-2xl font-body-bold">Filtres</Text>
+            <TouchableOpacity onPress={onClose} style={{ backgroundColor: colors.surface }} className="p-2 rounded-full">
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
             {/* Price Range */}
             <View className="mb-8">
-              <Text className="text-white text-lg font-body-bold mb-4">Prix (USD)</Text>
+              <Text style={{ color: colors.text }} className="text-lg font-body-bold mb-4">Prix (USD)</Text>
               <View className="flex-row items-center justify-between">
-                <View className="flex-1 bg-dark-surface rounded-2xl p-4 mr-2">
-                  <Text className="text-gray-400 text-xs mb-1">Min</Text>
+                <View style={{ backgroundColor: colors.surface }} className="flex-1 rounded-2xl p-4 mr-2">
+                  <Text style={{ color: colors.textMuted }} className="text-xs mb-1">Min</Text>
                   <TextInput
-                    className="text-white font-body text-base"
+                    style={{ color: colors.text }}
+                    className="font-body text-base"
                     placeholder="0"
-                    placeholderTextColor="#4B5563"
+                    placeholderTextColor={colors.textMuted}
                     keyboardType="numeric"
                     value={minPrice}
                     onChangeText={setMinPrice}
                   />
                 </View>
-                <View className="flex-1 bg-dark-surface rounded-2xl p-4 ml-2">
-                  <Text className="text-gray-400 text-xs mb-1">Max</Text>
+                <View style={{ backgroundColor: colors.surface }} className="flex-1 rounded-2xl p-4 ml-2">
+                  <Text style={{ color: colors.textMuted }} className="text-xs mb-1">Max</Text>
                   <TextInput
-                    className="text-white font-body text-base"
+                    style={{ color: colors.text }}
+                    className="font-body text-base"
                     placeholder="10000"
-                    placeholderTextColor="#4B5563"
+                    placeholderTextColor={colors.textMuted}
                     keyboardType="numeric"
                     value={maxPrice}
                     onChangeText={setMaxPrice}
@@ -121,25 +125,29 @@ export default function FiltersModal({ visible, onClose, onApply, initialFilters
 
             {/* City Selection */}
             <View className="mb-8">
-              <Text className="text-white text-lg font-body-bold mb-4">Ville</Text>
+              <Text style={{ color: colors.text }} className="text-lg font-body-bold mb-4">Ville</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <TouchableOpacity
                   onPress={() => setSelectedVilleId(null)}
-                  className={`mr-3 px-6 py-3 rounded-2xl border ${
-                    selectedVilleId === null ? 'bg-dark-teal border-dark-teal' : 'bg-dark-surface border-white/5'
-                  }`}
+                  style={{
+                    backgroundColor: selectedVilleId === null ? colors.teal : colors.surface,
+                    borderColor: selectedVilleId === null ? colors.teal : colors.border,
+                  }}
+                  className="mr-3 px-6 py-3 rounded-2xl border"
                 >
-                  <Text className={`font-body-medium ${selectedVilleId === null ? 'text-white' : 'text-gray-400'}`}>Toutes</Text>
+                  <Text style={{ color: selectedVilleId === null ? 'white' : colors.textMuted }} className="font-body-medium">Toutes</Text>
                 </TouchableOpacity>
                 {villes.map((ville) => (
                   <TouchableOpacity
                     key={ville.id}
                     onPress={() => setSelectedVilleId(ville.id)}
-                    className={`mr-3 px-6 py-3 rounded-2xl border ${
-                      selectedVilleId === ville.id ? 'bg-dark-teal border-dark-teal' : 'bg-dark-surface border-white/5'
-                    }`}
+                    style={{
+                      backgroundColor: selectedVilleId === ville.id ? colors.teal : colors.surface,
+                      borderColor: selectedVilleId === ville.id ? colors.teal : colors.border,
+                    }}
+                    className="mr-3 px-6 py-3 rounded-2xl border"
                   >
-                    <Text className={`font-body-medium ${selectedVilleId === ville.id ? 'text-white' : 'text-gray-400'}`}>{ville.name}</Text>
+                    <Text style={{ color: selectedVilleId === ville.id ? 'white' : colors.textMuted }} className="font-body-medium">{ville.name}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -148,28 +156,32 @@ export default function FiltersModal({ visible, onClose, onApply, initialFilters
             {/* Commune Selection (Visible only if Ville is selected) */}
             {selectedVilleId && (
               <View className="mb-8">
-                <Text className="text-white text-lg font-body-bold mb-4">Commune</Text>
+                <Text style={{ color: colors.text }} className="text-lg font-body-bold mb-4">Commune</Text>
                 {loadingCommunes ? (
-                  <ActivityIndicator color="#00BFA5" />
+                  <ActivityIndicator color={colors.teal} />
                 ) : (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <TouchableOpacity
                       onPress={() => setSelectedCommuneId(null)}
-                      className={`mr-3 px-6 py-3 rounded-2xl border ${
-                        selectedCommuneId === null ? 'bg-dark-teal border-dark-teal' : 'bg-dark-surface border-white/5'
-                      }`}
+                      style={{
+                        backgroundColor: selectedCommuneId === null ? colors.teal : colors.surface,
+                        borderColor: selectedCommuneId === null ? colors.teal : colors.border,
+                      }}
+                      className="mr-3 px-6 py-3 rounded-2xl border"
                     >
-                      <Text className={`font-body-medium ${selectedCommuneId === null ? 'text-white' : 'text-gray-400'}`}>Toutes</Text>
+                      <Text style={{ color: selectedCommuneId === null ? 'white' : colors.textMuted }} className="font-body-medium">Toutes</Text>
                     </TouchableOpacity>
                     {communes.map((commune) => (
                       <TouchableOpacity
                         key={commune.id}
                         onPress={() => setSelectedCommuneId(commune.id)}
-                        className={`mr-3 px-6 py-3 rounded-2xl border ${
-                          selectedCommuneId === commune.id ? 'bg-dark-teal border-dark-teal' : 'bg-dark-surface border-white/5'
-                        }`}
+                        style={{
+                          backgroundColor: selectedCommuneId === commune.id ? colors.teal : colors.surface,
+                          borderColor: selectedCommuneId === commune.id ? colors.teal : colors.border,
+                        }}
+                        className="mr-3 px-6 py-3 rounded-2xl border"
                       >
-                        <Text className={`font-body-medium ${selectedCommuneId === commune.id ? 'text-white' : 'text-gray-400'}`}>{commune.name}</Text>
+                        <Text style={{ color: selectedCommuneId === commune.id ? 'white' : colors.textMuted }} className="font-body-medium">{commune.name}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -179,17 +191,16 @@ export default function FiltersModal({ visible, onClose, onApply, initialFilters
 
             {/* Rating */}
             <View className="mb-8">
-              <Text className="text-white text-lg font-body-bold mb-4">Note minimum</Text>
+              <Text style={{ color: colors.text }} className="text-lg font-body-bold mb-4">Note minimum</Text>
               <View className="flex-row justify-between">
                 {[0, 1, 2, 3, 4, 5].map((star) => (
                   <TouchableOpacity
                     key={star}
                     onPress={() => setMinRating(star)}
-                    className={`w-12 h-12 items-center justify-center rounded-xl ${
-                      minRating === star ? 'bg-dark-teal' : 'bg-dark-surface'
-                    }`}
+                    style={{ backgroundColor: minRating === star ? colors.teal : colors.surface }}
+                    className="w-12 h-12 items-center justify-center rounded-xl"
                   >
-                    <Text className={`font-body-bold ${minRating === star ? 'text-white' : 'text-gray-400'}`}>
+                    <Text style={{ color: minRating === star ? 'white' : colors.textMuted }} className="font-body-bold">
                       {star === 0 ? 'All' : star}
                     </Text>
                   </TouchableOpacity>
@@ -198,15 +209,15 @@ export default function FiltersModal({ visible, onClose, onApply, initialFilters
             </View>
 
             {/* Availability */}
-            <View className="flex-row items-center justify-between mb-10 bg-dark-surface p-5 rounded-3xl">
+            <View style={{ backgroundColor: colors.surface }} className="flex-row items-center justify-between mb-10 p-5 rounded-3xl">
               <View>
-                <Text className="text-white text-lg font-body-bold">Disponibilité</Text>
-                <Text className="text-gray-400 text-sm font-body">Afficher uniquement les biens disponibles</Text>
+                <Text style={{ color: colors.text }} className="text-lg font-body-bold">Disponibilité</Text>
+                <Text style={{ color: colors.textMuted }} className="text-sm font-body">Afficher uniquement les biens disponibles</Text>
               </View>
               <Switch
                 value={onlyAvailable}
                 onValueChange={setOnlyAvailable}
-                trackColor={{ false: '#374151', true: '#00BFA5' }}
+                trackColor={{ false: colors.skeleton, true: colors.teal }}
                 thumbColor="#FFFFFF"
               />
             </View>
@@ -215,14 +226,15 @@ export default function FiltersModal({ visible, onClose, onApply, initialFilters
           <View className="flex-row gap-4 mt-auto pb-6">
             <TouchableOpacity
               onPress={handleReset}
-              className="flex-1 bg-dark-surface py-5 rounded-2xl items-center border border-white/5"
+              style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+              className="flex-1 py-5 rounded-2xl items-center border"
             >
-              <Text className="text-white font-body-bold text-base">Réinitialiser</Text>
+              <Text style={{ color: colors.text }} className="font-body-bold text-base">Réinitialiser</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleApply}
-              className="flex-2 bg-dark-teal py-5 rounded-2xl items-center"
-              style={{ flex: 2 }}
+              style={{ backgroundColor: colors.teal, flex: 2 }}
+              className="py-5 rounded-2xl items-center"
             >
               <Text className="text-white font-body-bold text-base">Appliquer</Text>
             </TouchableOpacity>

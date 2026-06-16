@@ -1,5 +1,5 @@
 {
-  "name": "nyumba_mobile",
+  "name": "nyumba",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {

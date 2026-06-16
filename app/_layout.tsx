@@ -4,7 +4,7 @@ import {
   Montserrat_700Bold,
   useFonts,
 } from '@expo-google-fonts/montserrat';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -16,7 +16,7 @@ import "../global.css";
 
 import SplashLoader from '@/components/SplashLoader';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 
 // Empêche le splash natif de se cacher automatiquement
 SplashScreen.preventAutoHideAsync();
@@ -27,7 +27,7 @@ export const unstable_settings = {
 
 function AppNavigator() {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
-  const colorScheme = useColorScheme();
+  const { scheme, isDark, colors } = useTheme();
   const [splashDone, setSplashDone] = useState(false);
 
   const [fontsLoaded] = useFonts({
@@ -72,27 +72,44 @@ function AppNavigator() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <NavThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <Stack>
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="annonces/[id]" options={{ headerShown: false, presentation: 'card' }} />
-            <Stack.Screen name="annonces/booking" options={{ title: 'Réservation', presentation: 'modal' }} />
-            <Stack.Screen name="annonces/payment" options={{ title: 'Paiement', presentation: 'card' }} />
+            <Stack.Screen name="annonces/booking" options={{ 
+              title: 'Réservation', 
+              presentation: 'modal',
+              headerStyle: { backgroundColor: colors.bg },
+              headerTintColor: colors.text,
+              headerTitleStyle: { fontFamily: 'Montserrat_700Bold', fontSize: 17 },
+              headerShadowVisible: false,
+              headerBackTitle: '',
+            }} />
+            <Stack.Screen name="annonces/payment" options={{ 
+              title: 'Confirmation', 
+              presentation: 'card',
+              headerStyle: { backgroundColor: colors.bg },
+              headerTintColor: colors.text,
+              headerTitleStyle: { fontFamily: 'Montserrat_700Bold', fontSize: 17 },
+              headerShadowVisible: false,
+              headerBackTitle: '',
+            }} />
           </Stack>
-          <StatusBar style="light" />
+          <StatusBar style={colors.statusBar} />
         </GestureHandlerRootView>
-      </ThemeProvider>
+      </NavThemeProvider>
     </SafeAreaProvider>
   );
 }
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <AppNavigator />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppNavigator />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
-

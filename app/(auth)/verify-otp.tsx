@@ -1,4 +1,5 @@
 import { ApiError, useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { VerifyOtpResponse } from '@/services/authService';
 import * as authService from '@/services/authService';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import {
 
 export default function VerifyOtpScreen() {
   const { pendingVerification, completeSignIn } = useAuth();
+  const { colors } = useTheme();
   const [otp, setOtp] = useState('');
   const [focused, setFocused] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -78,7 +80,7 @@ export default function VerifyOtpScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-dark-bg"
+      style={{ flex: 1, backgroundColor: colors.bg }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
@@ -86,57 +88,61 @@ export default function VerifyOtpScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View className="bg-dark-bg px-6 pt-16 pb-8">
+        <View style={{ backgroundColor: colors.bg }} className="px-6 pt-16 pb-8">
           <TouchableOpacity
             onPress={() => {
               router.replace('/(auth)/login' as any);
             }}
-            className="w-10 h-10 rounded-full bg-white/5 items-center justify-center mb-6"
+            style={{ backgroundColor: colors.border }}
+            className="w-10 h-10 rounded-full items-center justify-center mb-6"
           >
-            <Ionicons name="arrow-back" size={24} color="white" />
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
        
-          <Text className="text-white text-3xl font-body-bold">Vérification OTP</Text>
-          <Text className="text-gray-400 text-sm font-body mt-2">
+          <Text style={{ color: colors.text }} className="text-3xl font-body-bold">Vérification OTP</Text>
+          <Text style={{ color: colors.textMuted }} className="text-sm font-body mt-2">
             Nous avons envoyé un code de vérification à l'adresse : 
-            <Text className="text-white font-body-bold"> {pendingVerification?.destination || 'votre email'}</Text>
+            <Text style={{ color: colors.text }} className="font-body-bold"> {pendingVerification?.destination || 'votre email'}</Text>
           </Text>
         </View>
 
         <View className="flex-1 px-8 pt-4 pb-10">
           {error && (
-            <View className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-4 mb-8 flex-row items-center">
-              <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
-              <Text className="text-red-500 text-sm font-body ml-3 flex-1">{error}</Text>
+            <View style={{ backgroundColor: colors.errorSoft, borderColor: colors.errorBorder }} className="rounded-2xl px-4 py-4 mb-8 flex-row items-center border">
+              <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+              <Text style={{ color: colors.error }} className="text-sm font-body ml-3 flex-1">{error}</Text>
             </View>
           )}
 
           {resendSuccess && (
-            <View className="bg-green-500/10 border border-green-500/20 rounded-2xl px-4 py-4 mb-8 flex-row items-center">
+            <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.10)', borderColor: 'rgba(16, 185, 129, 0.20)' }} className="rounded-2xl px-4 py-4 mb-8 flex-row items-center border">
               <Ionicons name="checkmark-circle-outline" size={20} color="#10B981" />
-              <Text className="text-green-500 text-sm font-body ml-3 flex-1">Nouveau code envoyé avec succès.</Text>
+              <Text style={{ color: '#10B981' }} className="text-sm font-body ml-3 flex-1">Nouveau code envoyé avec succès.</Text>
             </View>
           )}
 
           <View className="mb-8">
-            <Text className="text-gray-400 text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
+            <Text style={{ color: colors.textMuted }} className="text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
               Code de vérification *
             </Text>
             <View
-              className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${
-                focused ? 'border-dark-teal' : 'border-white/5'
-              }`}
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: focused ? colors.borderFocused : colors.border,
+              }}
+              className="flex-row items-center border rounded-2xl px-4 py-4"
             >
               <Ionicons
                 name="keypad-outline"
                 size={20}
-                color={focused ? '#00BFA5' : '#6B7280'}
+                color={focused ? colors.teal : colors.icon}
                 style={{ marginRight: 12 }}
               />
               <TextInput
-                className="flex-1 text-white text-base font-body tracking-widest"
+                style={{ color: colors.text }}
+                className="flex-1 text-base font-body tracking-widest"
                 placeholder="123456"
-                placeholderTextColor="#4B5563"
+                placeholderTextColor={colors.textMuted}
                 value={otp}
                 onChangeText={(v) => { setOtp(v); setError(null); setResendSuccess(false); }}
                 keyboardType="number-pad"
@@ -149,7 +155,8 @@ export default function VerifyOtpScreen() {
           </View>
 
           <TouchableOpacity
-            className={`bg-dark-teal rounded-2xl py-5 items-center ${loading ? 'opacity-70' : ''}`}
+            style={{ backgroundColor: colors.teal, opacity: loading ? 0.7 : 1 }}
+            className="rounded-2xl py-5 items-center"
             onPress={handleVerify}
             activeOpacity={0.8}
             disabled={loading}
@@ -164,14 +171,14 @@ export default function VerifyOtpScreen() {
           </TouchableOpacity>
 
           <View className="flex-row justify-center items-center mt-10">
-            <Text className="text-gray-400 text-sm font-body">
+            <Text style={{ color: colors.textMuted }} className="text-sm font-body">
               Vous n'avez pas reçu le code ?{' '}
             </Text>
             <TouchableOpacity onPress={handleResend} disabled={resendLoading}>
               {resendLoading ? (
-                <ActivityIndicator size="small" color="#00BFA5" />
+                <ActivityIndicator size="small" color={colors.teal} />
               ) : (
-                <Text className="text-white font-body-bold text-sm">
+                <Text style={{ color: colors.text }} className="font-body-bold text-sm">
                   Renvoyer
                 </Text>
               )}

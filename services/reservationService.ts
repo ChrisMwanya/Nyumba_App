@@ -7,9 +7,19 @@ export type Reservation = {
   startDate: string;
   endDate: string;
   guestsCount: number;
-  status: 'pending' | 'confirmed' | 'cancelled';
-  totalPrice?: number;
+  status: string; // 'en_attente_paiement' | 'confirmee' | 'annulee'
+  totalAmount: number;
+  typeReservation?: string;
   createdAt: string;
+  updatedAt?: string;
+  annonce?: {
+    id: number;
+    title: string;
+    coverImageUrl: string | null;
+    price: number;
+    currency: string;
+    address: string | null;
+  };
 };
 
 export type AvailabilityResponse = {
@@ -35,7 +45,7 @@ export function checkAvailability(data: {
 }): Promise<AvailabilityResponse> {
   return apiRequest<AvailabilityResponse>('/reservations/check-availability', {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: data,
   });
 }
 
@@ -47,7 +57,7 @@ export function getQuote(data: {
 }): Promise<QuoteResponse> {
   return apiRequest<QuoteResponse>('/reservations/quote', {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: data,
   });
 }
 
@@ -57,17 +67,25 @@ export function createReservation(data: {
   end_date: string, 
   guests_count: number,
   options?: any[]
-}): Promise<Reservation> {
+}, token?: string): Promise<Reservation> {
   return apiRequest<Reservation>('/reservations', {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: data,
+    token,
   });
 }
 
-export function getMyReservations(): Promise<Reservation[]> {
-  return apiRequest<Reservation[]>('/reservations');
+export function getMyReservations(token: string): Promise<Reservation[]> {
+  return apiRequest<Reservation[]>('/reservations', {
+    method: 'GET',
+    token,
+  });
 }
 
-export function getReservationDetails(id: number): Promise<Reservation> {
-  return apiRequest<Reservation>(`/reservations/${id}`);
+export function getReservationDetails(id: number, token: string): Promise<Reservation> {
+  return apiRequest<Reservation>(`/reservations/${id}`, {
+    method: 'GET',
+    token,
+  });
 }
+

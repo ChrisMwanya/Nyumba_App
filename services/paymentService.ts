@@ -16,19 +16,21 @@ export type PaymentConfirmationResponse = {
 export function initiatePayment(data: { 
   reservation_id: number, 
   payment_method: PaymentMethod 
-}): Promise<PaymentInitiationResponse> {
+}, token: string): Promise<PaymentInitiationResponse> {
   return apiRequest<PaymentInitiationResponse>('/payments/initiate', {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: data,
+    token,
   });
 }
 
 export function confirmPayment(data: { 
   transaction_reference: string, 
   status: 'success' | 'failure' 
-}): Promise<PaymentConfirmationResponse> {
+}, token: string): Promise<PaymentConfirmationResponse> {
   return apiRequest<PaymentConfirmationResponse>('/payments/confirm', {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: data,
+    token,
   });
 }

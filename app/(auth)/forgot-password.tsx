@@ -1,4 +1,5 @@
 import { ApiError } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import * as authService from '@/services/authService';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -15,6 +16,7 @@ import {
 } from 'react-native';
 
 export default function ForgotPasswordScreen() {
+  const { colors } = useTheme();
   const [identifier, setIdentifier] = useState('');
   const [identifierFocused, setIdentifierFocused] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -46,7 +48,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-dark-bg"
+      style={{ flex: 1, backgroundColor: colors.bg }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
@@ -55,16 +57,17 @@ export default function ForgotPasswordScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* En-tête */}
-        <View className="bg-dark-bg px-6 pt-16 pb-8">
+        <View style={{ backgroundColor: colors.bg }} className="px-6 pt-16 pb-8">
           <TouchableOpacity
             onPress={() => router.back()}
-            className="w-10 h-10 rounded-full bg-white/5 items-center justify-center mb-6"
+            style={{ backgroundColor: colors.border }}
+            className="w-10 h-10 rounded-full items-center justify-center mb-6"
           >
-            <Ionicons name="arrow-back" size={24} color="white" />
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
        
-          <Text className="text-white text-3xl font-body-bold">Mot de passe oublié</Text>
-          <Text className="text-gray-400 text-sm font-body mt-2">
+          <Text style={{ color: colors.text }} className="text-3xl font-body-bold">Mot de passe oublié</Text>
+          <Text style={{ color: colors.textMuted }} className="text-sm font-body mt-2">
             Entrez votre email ou votre téléphone pour recevoir un code de réinitialisation.
           </Text>
         </View>
@@ -73,33 +76,36 @@ export default function ForgotPasswordScreen() {
           {!success ? (
             <>
               {error && (
-                <View className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-4 mb-8 flex-row items-center">
-                  <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
-                  <Text className="text-red-500 text-sm font-body ml-3 flex-1">
+                <View style={{ backgroundColor: colors.errorSoft, borderColor: colors.errorBorder }} className="rounded-2xl px-4 py-4 mb-8 flex-row items-center border">
+                  <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+                  <Text style={{ color: colors.error }} className="text-sm font-body ml-3 flex-1">
                     {error}
                   </Text>
                 </View>
               )}
 
               <View className="mb-8">
-                <Text className="text-gray-400 text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
+                <Text style={{ color: colors.textMuted }} className="text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
                   Email ou Téléphone
                 </Text>
                 <View
-                  className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${
-                    identifierFocused ? 'border-dark-teal' : 'border-white/5'
-                  }`}
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderColor: identifierFocused ? colors.borderFocused : colors.border,
+                  }}
+                  className="flex-row items-center border rounded-2xl px-4 py-4"
                 >
                   <Ionicons
                     name="person-outline"
                     size={20}
-                    color={identifierFocused ? '#00BFA5' : '#6B7280'}
+                    color={identifierFocused ? colors.teal : colors.icon}
                     style={{ marginRight: 12 }}
                   />
                   <TextInput
-                    className="flex-1 text-white text-base font-body"
+                    style={{ color: colors.text }}
+                    className="flex-1 text-base font-body"
                     placeholder="votre@email.com ou 07..."
-                    placeholderTextColor="#4B5563"
+                    placeholderTextColor={colors.textMuted}
                     value={identifier}
                     onChangeText={(v) => { setIdentifier(v); setError(null); }}
                     keyboardType="default"
@@ -111,7 +117,8 @@ export default function ForgotPasswordScreen() {
               </View>
 
               <TouchableOpacity
-                className={`bg-dark-teal rounded-2xl py-5 items-center ${loading ? 'opacity-70' : ''}`}
+                style={{ backgroundColor: colors.teal, opacity: loading ? 0.7 : 1 }}
+                className="rounded-2xl py-5 items-center"
                 onPress={handleResetRequest}
                 activeOpacity={0.8}
                 disabled={loading}
@@ -127,13 +134,13 @@ export default function ForgotPasswordScreen() {
             </>
           ) : (
             <View className="items-center justify-center py-10">
-              <View className="w-20 h-20 bg-dark-teal/20 rounded-full items-center justify-center mb-6">
-                <Ionicons name="mail-outline" size={48} color="#00BFA5" />
+              <View style={{ backgroundColor: colors.tealSoft }} className="w-20 h-20 rounded-full items-center justify-center mb-6">
+                <Ionicons name="mail-outline" size={48} color={colors.teal} />
               </View>
-              <Text className="text-white text-xl font-body-bold text-center mb-4">Code envoyé !</Text>
-              <Text className="text-gray-400 text-center font-body mb-10 leading-6">
+              <Text style={{ color: colors.text }} className="text-xl font-body-bold text-center mb-4">Code envoyé !</Text>
+              <Text style={{ color: colors.textMuted }} className="text-center font-body mb-10 leading-6">
                 Un code de réinitialisation a été envoyé à{' '}
-                <Text className="text-white font-body-bold">{identifier}</Text>.{'\n'}
+                <Text style={{ color: colors.text }} className="font-body-bold">{identifier}</Text>.{'\n'}
                 Entrez-le sur la page suivante.
               </Text>
               <TouchableOpacity
@@ -143,15 +150,17 @@ export default function ForgotPasswordScreen() {
                     params: { identifier: identifier.trim() },
                   })
                 }
-                className="bg-dark-teal w-full py-5 rounded-2xl items-center mb-4"
+                style={{ backgroundColor: colors.teal }}
+                className="w-full py-5 rounded-2xl items-center mb-4"
               >
                 <Text className="text-white font-body-bold text-base">Saisir le code</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => router.replace('/(auth)/login' as any)}
-                className="bg-white/5 border border-white/10 px-8 py-4 rounded-2xl"
+                style={{ backgroundColor: colors.border, borderColor: colors.border }}
+                className="px-8 py-4 rounded-2xl border"
               >
-                <Text className="text-white font-body-bold">Retour à la connexion</Text>
+                <Text style={{ color: colors.text }} className="font-body-bold">Retour à la connexion</Text>
               </TouchableOpacity>
             </View>
           )}

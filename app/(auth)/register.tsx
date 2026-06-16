@@ -1,4 +1,5 @@
 import { ApiError, useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
@@ -18,6 +19,7 @@ type FieldErrors = Record<string, string>;
 
 export default function RegisterScreen() {
   const { signUp } = useAuth();
+  const { colors } = useTheme();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -90,18 +92,18 @@ export default function RegisterScreen() {
     }
   };
 
-  const borderClass = (field: string) =>
+  const getBorderColor = (field: string) =>
     focusedField === field
-      ? 'border-dark-teal'
+      ? colors.borderFocused
       : fieldErrors[field]
-      ? 'border-red-400'
-      : 'border-white/5';
+      ? colors.error
+      : colors.border;
 
-  const iconColor = (field: string) => (focusedField === field ? '#00BFA5' : '#6B7280');
+  const iconColor = (field: string) => (focusedField === field ? colors.teal : colors.icon);
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-dark-bg"
+      style={{ flex: 1, backgroundColor: colors.bg }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
@@ -110,16 +112,17 @@ export default function RegisterScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* En-tête */}
-        <View className="bg-dark-bg px-6 pt-16 pb-8">
+        <View style={{ backgroundColor: colors.bg }} className="px-6 pt-16 pb-8">
           <TouchableOpacity
             onPress={() => router.back()}
-            className="w-10 h-10 rounded-full bg-white/5 items-center justify-center mb-6"
+            style={{ backgroundColor: colors.border }}
+            className="w-10 h-10 rounded-full items-center justify-center mb-6"
           >
-            <Ionicons name="arrow-back" size={24} color="white" />
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
        
-          <Text className="text-white text-3xl font-body-bold">Créer un compte</Text>
-          <Text className="text-gray-400 text-sm font-body mt-2">
+          <Text style={{ color: colors.text }} className="text-3xl font-body-bold">Créer un compte</Text>
+          <Text style={{ color: colors.textMuted }} className="text-sm font-body mt-2">
             Rejoignez Nyumba et gérez vos biens
           </Text>
         </View>
@@ -128,9 +131,9 @@ export default function RegisterScreen() {
 
           {/* Erreur globale */}
           {globalError && (
-            <View className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-4 mb-8 flex-row items-center">
-              <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
-              <Text className="text-red-500 text-sm font-body ml-3 flex-1">
+            <View style={{ backgroundColor: colors.errorSoft, borderColor: colors.errorBorder }} className="rounded-2xl px-4 py-4 mb-8 flex-row items-center border">
+              <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+              <Text style={{ color: colors.error }} className="text-sm font-body ml-3 flex-1">
                 {globalError}
               </Text>
             </View>
@@ -138,15 +141,16 @@ export default function RegisterScreen() {
 
           {/* Nom complet */}
           <View className="mb-6">
-            <Text className="text-gray-400 text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
+            <Text style={{ color: colors.textMuted }} className="text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
               Nom complet *
             </Text>
-            <View className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${borderClass('fullName')}`}>
+            <View style={{ backgroundColor: colors.surface, borderColor: getBorderColor('fullName') }} className="flex-row items-center border rounded-2xl px-4 py-4">
               <Ionicons name="person-outline" size={20} color={iconColor('fullName')} style={{ marginRight: 12 }} />
               <TextInput
-                className="flex-1 text-white text-base font-body"
+                style={{ color: colors.text }}
+                className="flex-1 text-base font-body"
                 placeholder="Jean Dupont"
-                placeholderTextColor="#4B5563"
+                placeholderTextColor={colors.textMuted}
                 value={fullName}
                 onChangeText={(v) => { setFullName(v); clearError('fullName'); }}
                 autoCapitalize="words"
@@ -155,7 +159,7 @@ export default function RegisterScreen() {
               />
             </View>
             {fieldErrors.fullName && (
-              <Text className="text-red-400 text-xs mt-1 ml-1 font-body">
+              <Text style={{ color: colors.error }} className="text-xs mt-1 ml-1 font-body">
                 {fieldErrors.fullName}
               </Text>
             )}
@@ -163,15 +167,16 @@ export default function RegisterScreen() {
 
           {/* Email */}
           <View className="mb-6">
-            <Text className="text-gray-400 text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
+            <Text style={{ color: colors.textMuted }} className="text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
               Adresse email *
             </Text>
-            <View className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${borderClass('email')}`}>
+            <View style={{ backgroundColor: colors.surface, borderColor: getBorderColor('email') }} className="flex-row items-center border rounded-2xl px-4 py-4">
               <Ionicons name="mail-outline" size={20} color={iconColor('email')} style={{ marginRight: 12 }} />
               <TextInput
-                className="flex-1 text-white text-base font-body"
+                style={{ color: colors.text }}
+                className="flex-1 text-base font-body"
                 placeholder="votre@email.com"
-                placeholderTextColor="#4B5563"
+                placeholderTextColor={colors.textMuted}
                 value={email}
                 onChangeText={(v) => { setEmail(v); clearError('email'); }}
                 keyboardType="email-address"
@@ -181,7 +186,7 @@ export default function RegisterScreen() {
               />
             </View>
             {fieldErrors.email && (
-              <Text className="text-red-400 text-xs mt-1 ml-1 font-body">
+              <Text style={{ color: colors.error }} className="text-xs mt-1 ml-1 font-body">
                 {fieldErrors.email}
               </Text>
             )}
@@ -189,15 +194,16 @@ export default function RegisterScreen() {
 
           {/* Téléphone (optionnel) */}
           <View className="mb-6">
-            <Text className="text-gray-400 text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
-              Téléphone <Text className="normal-case text-gray-500">(optionnel)</Text>
+            <Text style={{ color: colors.textMuted }} className="text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
+              Téléphone <Text style={{ color: colors.textMuted }}>(optionnel)</Text>
             </Text>
-            <View className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${borderClass('phone')}`}>
+            <View style={{ backgroundColor: colors.surface, borderColor: getBorderColor('phone') }} className="flex-row items-center border rounded-2xl px-4 py-4">
               <Ionicons name="call-outline" size={20} color={iconColor('phone')} style={{ marginRight: 12 }} />
               <TextInput
-                className="flex-1 text-white text-base font-body"
+                style={{ color: colors.text }}
+                className="flex-1 text-base font-body"
                 placeholder="+243 81 234 5678"
-                placeholderTextColor="#4B5563"
+                placeholderTextColor={colors.textMuted}
                 value={phone}
                 onChangeText={(v) => { setPhone(v); clearError('phone'); }}
                 keyboardType="phone-pad"
@@ -206,7 +212,7 @@ export default function RegisterScreen() {
               />
             </View>
             {fieldErrors.phone && (
-              <Text className="text-red-400 text-xs mt-1 ml-1 font-body">
+              <Text style={{ color: colors.error }} className="text-xs mt-1 ml-1 font-body">
                 {fieldErrors.phone}
               </Text>
             )}
@@ -214,15 +220,16 @@ export default function RegisterScreen() {
 
           {/* Mot de passe */}
           <View className="mb-6">
-            <Text className="text-gray-400 text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
+            <Text style={{ color: colors.textMuted }} className="text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
               Mot de passe *
             </Text>
-            <View className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${borderClass('password')}`}>
+            <View style={{ backgroundColor: colors.surface, borderColor: getBorderColor('password') }} className="flex-row items-center border rounded-2xl px-4 py-4">
               <Ionicons name="lock-closed-outline" size={20} color={iconColor('password')} style={{ marginRight: 12 }} />
               <TextInput
-                className="flex-1 text-white text-base font-body"
+                style={{ color: colors.text }}
+                className="flex-1 text-base font-body"
                 placeholder="Minimum 8 caractères"
-                placeholderTextColor="#4B5563"
+                placeholderTextColor={colors.textMuted}
                 value={password}
                 onChangeText={(v) => { setPassword(v); clearError('password'); }}
                 secureTextEntry={!showPassword}
@@ -230,11 +237,11 @@ export default function RegisterScreen() {
                 onBlur={() => setFocusedField(null)}
               />
               <Pressable onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#6B7280" />
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.icon} />
               </Pressable>
             </View>
             {fieldErrors.password && (
-              <Text className="text-red-400 text-xs mt-1 ml-1 font-body">
+              <Text style={{ color: colors.error }} className="text-xs mt-1 ml-1 font-body">
                 {fieldErrors.password}
               </Text>
             )}
@@ -242,15 +249,16 @@ export default function RegisterScreen() {
 
           {/* Confirmer le mot de passe */}
           <View className="mb-10">
-            <Text className="text-gray-400 text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
+            <Text style={{ color: colors.textMuted }} className="text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
               Confirmer le mot de passe *
             </Text>
-            <View className={`flex-row items-center bg-dark-surface border rounded-2xl px-4 py-4 ${borderClass('confirmPassword')}`}>
+            <View style={{ backgroundColor: colors.surface, borderColor: getBorderColor('confirmPassword') }} className="flex-row items-center border rounded-2xl px-4 py-4">
               <Ionicons name="shield-checkmark-outline" size={20} color={iconColor('confirmPassword')} style={{ marginRight: 12 }} />
               <TextInput
-                className="flex-1 text-white text-base font-body"
+                style={{ color: colors.text }}
+                className="flex-1 text-base font-body"
                 placeholder="Répétez votre mot de passe"
-                placeholderTextColor="#4B5563"
+                placeholderTextColor={colors.textMuted}
                 value={confirmPassword}
                 onChangeText={(v) => { setConfirmPassword(v); clearError('confirmPassword'); }}
                 secureTextEntry={!showConfirmPassword}
@@ -258,11 +266,11 @@ export default function RegisterScreen() {
                 onBlur={() => setFocusedField(null)}
               />
               <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                <Ionicons name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#6B7280" />
+                <Ionicons name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.icon} />
               </Pressable>
             </View>
             {fieldErrors.confirmPassword && (
-              <Text className="text-red-400 text-xs mt-1 ml-1 font-body">
+              <Text style={{ color: colors.error }} className="text-xs mt-1 ml-1 font-body">
                 {fieldErrors.confirmPassword}
               </Text>
             )}
@@ -270,7 +278,8 @@ export default function RegisterScreen() {
 
           {/* Bouton S'inscrire */}
           <TouchableOpacity
-            className={`bg-dark-teal rounded-2xl py-5 items-center ${loading ? 'opacity-70' : ''}`}
+            style={{ backgroundColor: colors.teal, opacity: loading ? 0.7 : 1 }}
+            className="rounded-2xl py-5 items-center"
             onPress={handleRegister}
             activeOpacity={0.8}
             disabled={loading}
@@ -286,12 +295,12 @@ export default function RegisterScreen() {
 
           {/* Lien vers connexion */}
           <View className="flex-row justify-center items-center mt-10">
-            <Text className="text-gray-400 text-sm font-body">
+            <Text style={{ color: colors.textMuted }} className="text-sm font-body">
               Déjà un compte ?{' '}
             </Text>
             <Link href={"/(auth)/login" as any} asChild>
               <TouchableOpacity>
-                <Text className="text-white font-body-bold text-sm">
+                <Text style={{ color: colors.text }} className="font-body-bold text-sm">
                   Se connecter
                 </Text>
               </TouchableOpacity>

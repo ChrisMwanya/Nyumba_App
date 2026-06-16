@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "nyumba_mobile",
-    "slug": "nyumba_mobile",
+    "slug": "nyumba",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.nyumba-mobile"
+      "bundleIdentifier": "com.anonymous.nyumba-mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -30,7 +33,8 @@
           "image": "./assets/images/splash-icon-light.png",
           "backgroundColor": "#000000"
         }
-      }
+      },
+      "package": "com.chrismwanya.nyumba"
     },
     "web": {
       "output": "static",
@@ -70,6 +74,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0554cae7-ffc8-43ba-a042-cea23d7b5c96"
+      }
+    },
+    "owner": "chrismwanya"
   }
 }
