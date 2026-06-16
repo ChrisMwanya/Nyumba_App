@@ -24,6 +24,7 @@ import { getCategories } from '@/services/categoryService';
 import FiltersModal from '@/components/FiltersModal';
 import { router } from 'expo-router';
 import { getCategoryFeatures } from '@/constants/features';
+import { openDirections } from '@/utils/map';
 
 const CATEGORY_ICONS: Record<string, any> = {
   'restaurants': 'restaurant-outline',
@@ -320,13 +321,24 @@ export default function HomeScreen() {
                             </View>
                           ))}
                         </View>
-                       <TouchableOpacity 
-                         onPress={() => router.push(`/annonces/${annonce.id}` as any)}
-                         style={{ backgroundColor: colors.teal }}
-                         className="px-6 py-4 rounded-2xl"
-                       >
-                         <Text className="text-white font-body-bold">{language === 'fr' ? 'Détails' : 'Details'}</Text>
-                       </TouchableOpacity>
+                        <View className="flex-row gap-2">
+                           {annonce.latitude && annonce.longitude && (
+                             <TouchableOpacity 
+                               onPress={() => openDirections(annonce.latitude!, annonce.longitude!, annonce.title)}
+                               style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+                               className="w-12 h-12 rounded-2xl border items-center justify-center"
+                             >
+                               <Ionicons name="navigate-outline" size={20} color={colors.teal} />
+                             </TouchableOpacity>
+                           )}
+                           <TouchableOpacity 
+                             onPress={() => router.push(`/annonces/${annonce.id}` as any)}
+                             style={{ backgroundColor: colors.teal }}
+                             className="px-6 py-4 rounded-2xl h-12 justify-center"
+                           >
+                             <Text className="text-white font-body-bold">{language === 'fr' ? 'Détails' : 'Details'}</Text>
+                           </TouchableOpacity>
+                        </View>
                      </View>
                    </View>
                 </TouchableOpacity>

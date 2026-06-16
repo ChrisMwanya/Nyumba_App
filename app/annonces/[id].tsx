@@ -19,6 +19,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { getAnnonceById, Annonce } from '@/services/annonceService';
 import { createReservation } from '@/services/reservationService';
 import { getCategoryFeatures } from '@/constants/features';
+import { openDirections } from '@/utils/map';
 
 const { width } = Dimensions.get('window');
 
@@ -224,10 +225,21 @@ export default function AnnonceDetailsScreen() {
           {/* Location Map Placeholder */}
           <View className="mb-8">
             <Text style={{ color: colors.text }} className="text-xl font-body-bold mb-4">Localisation</Text>
-            <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="h-48 rounded-[32px] overflow-hidden border items-center justify-center">
+            <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="h-48 rounded-[32px] overflow-hidden border items-center justify-center mb-4">
               <Ionicons name="map-outline" size={48} color={colors.icon} />
               <Text style={{ color: colors.textMuted }} className="font-body mt-2">Carte de localisation</Text>
             </View>
+            
+            {annonce.latitude && annonce.longitude && (
+               <TouchableOpacity 
+                 onPress={() => openDirections(annonce.latitude!, annonce.longitude!, annonce.title)}
+                 style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+                 className="h-14 rounded-2xl flex-row items-center justify-center border"
+               >
+                 <Ionicons name="navigate-outline" size={20} color={colors.teal} />
+                 <Text style={{ color: colors.text }} className="font-body-bold ml-2">Obtenir l'itinéraire</Text>
+               </TouchableOpacity>
+            )}
           </View>
         </View>
       </ScrollView>

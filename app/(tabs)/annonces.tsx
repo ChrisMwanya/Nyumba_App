@@ -21,6 +21,7 @@ import { getAnnonces, Annonce, AnnonceFilters, Ville } from '@/services/annonceS
 import { getVilles } from '@/services/villeService';
 import { router } from 'expo-router';
 import FiltersModal from '@/components/FiltersModal';
+import { openDirections } from '@/utils/map';
 
 const { width, height } = Dimensions.get('window');
 
@@ -32,7 +33,7 @@ const INITIAL_REGION = {
 };
 
 export default function AnnoncesScreen() {
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [annonces, setAnnonces] = useState<Annonce[]>([]);
   const [villes, setVilles] = useState<Ville[]>([]);
@@ -184,8 +185,19 @@ export default function AnnoncesScreen() {
               <Text style={{ color: colors.textSecondary }} className="text-xs font-body-medium ml-1">120m²</Text>
             </View>
           </View>
-          <View style={{ backgroundColor: colors.tealSoft }} className="px-3 py-2 rounded-xl">
-            <Text style={{ color: colors.teal }} className="text-[10px] font-body-bold uppercase">Détails</Text>
+          <View className="flex-row gap-2">
+            {item.latitude && item.longitude && (
+              <TouchableOpacity 
+                onPress={() => openDirections(item.latitude!, item.longitude!, item.title)}
+                style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+                className="w-10 h-10 rounded-xl border items-center justify-center"
+              >
+                <Ionicons name="navigate-outline" size={16} color={colors.teal} />
+              </TouchableOpacity>
+            )}
+            <View style={{ backgroundColor: colors.tealSoft }} className="px-3 py-2 rounded-xl justify-center h-10">
+              <Text style={{ color: colors.teal }} className="text-[10px] font-body-bold uppercase">Détails</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -282,7 +294,7 @@ export default function AnnoncesScreen() {
               provider={PROVIDER_GOOGLE}
               style={StyleSheet.absoluteFillObject}
               initialRegion={INITIAL_REGION}
-              customMapStyle={mapStyle}
+              customMapStyle={mode === 'dark' ? darkMapStyle : lightMapStyle}
               showsUserLocation={true}
             >
               {useGPS && location && (
@@ -321,7 +333,7 @@ export default function AnnoncesScreen() {
                         />
                         <View className="absolute bottom-1 right-1 items-end">
                            <View style={{ backgroundColor: 'white', borderColor: colors.teal }} className="px-2 py-0.5 rounded-full border mb-1">
-                             <Text style={{ color: colors.bg }} className="text-[8px] font-body-bold uppercase">{annonce.category?.name || 'Immo'}</Text>
+                             <Text style={{ color: '#121212' }} className="text-[8px] font-body-bold uppercase">{annonce.category?.name || 'Immo'}</Text>
                            </View>
                            <View style={{ backgroundColor: colors.teal }} className="px-3 py-1.5 rounded-xl border border-white shadow-sm">
                              <Text className="text-white text-xs font-body-bold">{annonce.price} {annonce.currency}</Text>
@@ -363,7 +375,7 @@ export default function AnnoncesScreen() {
   );
 }
 
-const mapStyle = [
+const darkMapStyle = [
   {
     "elementType": "geometry",
     "stylers": [{ "color": "#121212" }]
@@ -394,5 +406,12 @@ const mapStyle = [
     "featureType": "water",
     "elementType": "geometry",
     "stylers": [{ "color": "#000000" }]
+  }
+];
+
+const lightMapStyle = [
+  {
+    "elementType": "labels.icon",
+    "stylers": [{ "visibility": "off" }]
   }
 ];
