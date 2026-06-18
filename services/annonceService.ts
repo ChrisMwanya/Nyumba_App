@@ -23,6 +23,56 @@ export type AnnonceImage = {
   isMain: boolean;
 };
 
+export type Amenity = {
+  id: number;
+  name: string;
+  icon?: string;
+  type?: string;
+};
+
+export type RestaurantDetail = {
+  id: number;
+  cuisineType?: string;
+  menuUrl?: string;
+  openingHours?: string;
+  hasDelivery: boolean;
+  hasReservation: boolean;
+  averagePrice?: number;
+  alcoholAvailable: boolean;
+};
+
+export type HotelDetail = {
+  id: number;
+  stars?: number;
+  checkInTime?: string;
+  checkOutTime?: string;
+  hasPool: boolean;
+  hasWifi: boolean;
+  hasParking: boolean;
+  hasBreakfast: boolean;
+};
+
+export type AccommodationDetail = {
+  id: number;
+  numberOfRooms?: number;
+  numberOfBeds?: number;
+  maxGuests?: number;
+  hasKitchen: boolean;
+  hasWifi: boolean;
+  hasAirConditioning: boolean;
+  pricePerNight?: number;
+};
+
+export type ClubDetail = {
+  id: number;
+  musicType?: string;
+  dressCode?: string;
+  entranceFee?: number;
+  minimumAge?: number;
+  openingDays?: string;
+  vipAvailable: boolean;
+};
+
 export type Annonceur = {
   id: number;
   name: string;
@@ -37,12 +87,17 @@ export type Annonce = {
   id: number;
   title: string;
   description?: string;
+  type?: 'restaurant' | 'hotel' | 'accommodation' | 'club';
   price: number;
   currency: string;
   address?: string;
   latitude?: number;
   longitude?: number;
   avgRating?: number;
+  phone?: string;
+  email?: string;
+  website?: string;
+  metadata?: any;
   status: 'available' | 'rented' | 'sold';
   categoryId: number;
   villeId: number;
@@ -55,6 +110,11 @@ export type Annonce = {
   commune?: { id: number; name: string };
   annonceur?: Annonceur;
   images?: AnnonceImage[];
+  amenities?: Amenity[];
+  restaurantDetail?: RestaurantDetail;
+  hotelDetail?: HotelDetail;
+  accommodationDetail?: AccommodationDetail;
+  clubDetail?: ClubDetail;
   avis?: any[];
   reservations?: any[];
   createdAt: string;

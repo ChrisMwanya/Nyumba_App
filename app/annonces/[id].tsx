@@ -9,14 +9,15 @@ import {
   Dimensions,
   StatusBar,
   Alert,
-  StyleSheet
+  StyleSheet,
+  Linking
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getAnnonceById, Annonce } from '@/services/annonceService';
-import { getCategoryFeatures } from '@/constants/features';
+import { getCategoryFeatures, getDynamicFeatures } from '@/constants/features';
 import { openDirections } from '@/utils/map';
 
 const { width } = Dimensions.get('window');
@@ -165,7 +166,7 @@ export default function AnnonceDetailsScreen() {
 
           {/* Features */}
           <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="flex-row justify-between p-6 rounded-[32px] mb-8 border">
-            {getCategoryFeatures(annonce.category?.slug || '').map((feat, idx) => (
+            {getDynamicFeatures(annonce).slice(0, 3).map((feat, idx) => (
               <View key={idx} className="items-center flex-1">
                 <View style={{ backgroundColor: colors.tealSoft }} className="w-12 h-12 rounded-2xl items-center justify-center mb-2">
                   <Ionicons name={feat.icon as any} size={24} color={colors.teal} />
@@ -190,6 +191,38 @@ export default function AnnonceDetailsScreen() {
               {annonce.description || "Cette magnifique propriété offre tout le confort moderne dans un cadre sécurisé et prestigieux. Idéalement située, elle dispose de finitions haut de gamme et d'un espace de vie généreux."}
             </Text>
           </View>
+
+          {/* Detailed Features */}
+          {getDynamicFeatures(annonce).length > 0 && (
+            <View className="mb-8">
+              <Text style={{ color: colors.text }} className="text-xl font-body-bold mb-4">Informations détaillées</Text>
+              <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="rounded-[32px] overflow-hidden border">
+                {getDynamicFeatures(annonce).map((feat, idx, arr) => (
+                  <View key={idx} style={{ borderBottomColor: colors.divider, borderBottomWidth: idx < arr.length - 1 ? 1 : 0 }} className="flex-row items-center justify-between p-4 px-6">
+                    <View className="flex-row items-center">
+                      <Ionicons name={feat.icon as any} size={20} color={colors.icon} />
+                      <Text style={{ color: colors.textSecondary }} className="font-body ml-3">{feat.label}</Text>
+                    </View>
+                    <Text style={{ color: colors.text }} className="font-body-bold">{feat.value}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Specific Links (e.g. Menu for Restaurant) */}
+          {annonce.category?.slug === 'restaurants' && annonce.restaurantDetail?.menuUrl && (
+            <View className="mb-8">
+              <TouchableOpacity 
+                 onPress={() => Linking.openURL(annonce.restaurantDetail!.menuUrl!)}
+                 style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+                 className="h-14 rounded-2xl flex-row items-center justify-center border"
+               >
+                 <Ionicons name="document-text-outline" size={20} color={colors.teal} />
+                 <Text style={{ color: colors.text }} className="font-body-bold ml-2">Voir le menu complet</Text>
+               </TouchableOpacity>
+            </View>
+          )}
 
           {/* Location Map Placeholder */}
           <View className="mb-8">

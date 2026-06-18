@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Annonce } from '@/services/annonceService';
-import { getCategoryFeatures } from '@/constants/features';
+import { getCategoryFeatures, getDynamicFeatures } from '@/constants/features';
 import { openDirections } from '@/utils/map';
 
 interface PropertyCardProps {
@@ -62,13 +62,13 @@ export default function PropertyCard({ annonce, language = 'fr' }: PropertyCardP
 
          <View className="flex-row items-center justify-between">
             <View className="flex-row items-center gap-4">
-              {getCategoryFeatures(annonce.category?.slug || '').slice(0, 2).map((feat, idx) => (
+              {getDynamicFeatures(annonce).slice(0, 2).map((feat, idx) => (
                 <View key={idx} className="flex-row items-center">
                   <Ionicons name={feat.icon as any} size={16} color={colors.teal} />
                   <Text style={{ color: colors.textSecondary }} className="text-xs font-body-medium ml-1">{feat.value}</Text>
                 </View>
               ))}
-              {getCategoryFeatures(annonce.category?.slug || '').length === 0 && (
+              {getDynamicFeatures(annonce).length === 0 && (
                 <>
                   <View className="flex-row items-center">
                     <Ionicons name="bed-outline" size={16} color={colors.teal} />
