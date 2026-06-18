@@ -9,7 +9,6 @@ import {
   Dimensions,
   StatusBar,
   Alert,
-  Linking,
   StyleSheet
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -17,11 +16,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getAnnonceById, Annonce } from '@/services/annonceService';
-import { createReservation } from '@/services/reservationService';
 import { getCategoryFeatures } from '@/constants/features';
 import { openDirections } from '@/utils/map';
 
 const { width } = Dimensions.get('window');
+
+/** Only these category slugs allow reservations */
+const BOOKABLE_CATEGORIES = new Set(['hotels', 'airbnbs', 'restaurants']);
 
 export default function AnnonceDetailsScreen() {
   const { id } = useLocalSearchParams();
@@ -58,18 +59,6 @@ export default function AnnonceDetailsScreen() {
     } as any);
   };
 
-  const handleCall = () => {
-    if (annonce?.annonceur?.phone) {
-      Linking.openURL(`tel:${annonce.annonceur.phone}`);
-    }
-  };
-
-  const handleWhatsApp = () => {
-    if (annonce?.annonceur?.phone) {
-      const message = `Bonjour, je suis intéressé par votre annonce "${annonce.title}" sur Nyumba.`;
-      Linking.openURL(`whatsapp://send?phone=${annonce.annonceur.phone}&text=${encodeURIComponent(message)}`);
-    }
-  };
 
   if (loading) {
     return (
@@ -84,6 +73,8 @@ export default function AnnonceDetailsScreen() {
   const images = (annonce.images && annonce.images.length > 0) 
     ? annonce.images 
     : (annonce.coverImageUrl ? [{ url: annonce.coverImageUrl }] : [{ url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800' }]);
+
+  const isBookable = BOOKABLE_CATEGORIES.has(annonce.category?.slug || '');
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -108,7 +99,7 @@ export default function AnnonceDetailsScreen() {
         </View>
       </SafeAreaView>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: isBookable ? 120 : 40 }}>
         {/* Image Gallery */}
         <View className="relative">
           <ScrollView 
@@ -150,13 +141,25 @@ export default function AnnonceDetailsScreen() {
 
         {/* Content */}
         <View style={{ backgroundColor: colors.bg }} className="px-6 -mt-6 rounded-t-[40px] pt-8">
-          <View className="flex-row justify-between items-start mb-6">
-            <View className="flex-1 mr-4">
-              <Text style={{ color: colors.text }} className="text-3xl font-body-bold mb-2">{annonce.title}</Text>
-              <View className="flex-row items-center">
-                <Ionicons name="location" size={16} color={colors.teal} />
-                <Text style={{ color: colors.textMuted }} className="font-body ml-1">{annonce.ville?.name}, {annonce.address || 'Kinshasa'}</Text>
-              </View>
+          {/* Title & Location */}
+          <View className="mb-6">
+            <Text style={{ color: colors.text }} className="text-3xl font-body-bold mb-2">{annonce.title}</Text>
+            <View className="flex-row items-center mb-3">
+              <Ionicons name="location" size={16} color={colors.teal} />
+              <Text style={{ color: colors.textMuted }} className="font-body ml-1">
+                {[annonce.commune?.name, annonce.ville?.name, annonce.address].filter(Boolean).join(', ') || 'Kinshasa'}
+              </Text>
+            </View>
+            {/* Price */}
+            <View className="flex-row items-baseline">
+              <Text style={{ color: colors.teal }} className="text-2xl font-body-bold">
+                {Number(annonce.price).toLocaleString('fr-FR')} {annonce.currency || 'USD'}
+              </Text>
+              {isBookable && (
+                <Text style={{ color: colors.textMuted }} className="font-body text-sm ml-1">
+                  / nuit
+                </Text>
+              )}
             </View>
           </View>
 
@@ -177,40 +180,6 @@ export default function AnnonceDetailsScreen() {
               </View>
               <Text style={{ color: colors.text }} className="font-body-bold text-center">{annonce.avgRating || '4.5'}</Text>
               <Text style={{ color: colors.textMuted }} className="text-[10px] font-body uppercase text-center">Note</Text>
-            </View>
-          </View>
-
-          {/* Annonceur / Contact Section */}
-          <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="p-6 rounded-[32px] mb-8 border">
-            <View className="flex-row items-center mb-6">
-              <Image 
-                source={{ uri: annonce.annonceur?.logoUrl || 'https://ui-avatars.com/api/?name=' + (annonce.annonceur?.name || 'Owner') + '&background=00BFA5&color=fff' }} 
-                className="w-16 h-16 rounded-2xl"
-                style={{ backgroundColor: colors.skeleton }}
-              />
-              <View className="ml-4 flex-1">
-                <Text style={{ color: colors.text }} className="font-body-bold text-lg">{annonce.annonceur?.name || 'Propriétaire'}</Text>
-                <Text style={{ color: colors.textMuted }} className="font-body text-sm">{annonce.annonceur?.type === 'agence' ? 'Agence Immobilière' : 'Particulier'}</Text>
-              </View>
-            </View>
-            
-            <View className="flex-row gap-3">
-              <TouchableOpacity 
-                onPress={handleCall}
-                style={{ backgroundColor: colors.border, borderColor: colors.border }}
-                className="flex-1 h-14 rounded-2xl flex-row items-center justify-center border"
-              >
-                <Ionicons name="call-outline" size={20} color={colors.text} />
-                <Text style={{ color: colors.text }} className="font-body-bold ml-2">Appeler</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={handleWhatsApp}
-                style={{ backgroundColor: colors.whatsappSoft, borderColor: colors.whatsappBorder }}
-                className="flex-1 h-14 rounded-2xl flex-row items-center justify-center border"
-              >
-                <Ionicons name="logo-whatsapp" size={20} color={colors.whatsapp} />
-                <Text style={{ color: colors.whatsapp }} className="font-body-bold ml-2">WhatsApp</Text>
-              </TouchableOpacity>
             </View>
           </View>
 
@@ -244,24 +213,26 @@ export default function AnnonceDetailsScreen() {
         </View>
       </ScrollView>
 
-      {/* Floating Footer Button */}
-      <View style={{ backgroundColor: `${colors.bg}CC`, borderTopColor: colors.border }} className="absolute bottom-0 left-0 right-0 border-t px-6 py-6 backdrop-blur-xl">
-        <TouchableOpacity 
-          onPress={handleBooking}
-          disabled={booking}
-          style={{ backgroundColor: colors.teal }}
-          className="h-16 rounded-[24px] flex-row items-center justify-center shadow-2xl"
-        >
-          {booking ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <>
-              <Ionicons name="calendar-outline" size={20} color="white" />
-              <Text className="text-white font-body-bold text-lg ml-2">Réserver maintenant</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+      {/* Floating Footer Button — only for bookable categories */}
+      {isBookable && (
+        <View style={{ backgroundColor: `${colors.bg}CC`, borderTopColor: colors.border }} className="absolute bottom-0 left-0 right-0 border-t px-6 py-6 backdrop-blur-xl">
+          <TouchableOpacity 
+            onPress={handleBooking}
+            disabled={booking}
+            style={{ backgroundColor: colors.teal }}
+            className="h-16 rounded-[24px] flex-row items-center justify-center shadow-2xl"
+          >
+            {booking ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <Ionicons name="calendar-outline" size={20} color="white" />
+                <Text className="text-white font-body-bold text-lg ml-2">Réserver maintenant</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }

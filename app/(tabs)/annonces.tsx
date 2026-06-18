@@ -1,27 +1,27 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  FlatList, 
-  TouchableOpacity, 
-  Image, 
-  TextInput, 
-  ActivityIndicator, 
+import FiltersModal from '@/components/FiltersModal';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Annonce, AnnonceFilters, getAnnonces, Ville } from '@/services/annonceService';
+import { getVilles } from '@/services/villeService';
+import { openDirections } from '@/utils/map';
+import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
   Dimensions,
+  FlatList,
+  Image,
   StyleSheet,
-  Platform,
-  Alert
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
-import * as Location from 'expo-location';
-import { useTheme } from '@/contexts/ThemeContext';
-import { getAnnonces, Annonce, AnnonceFilters, Ville } from '@/services/annonceService';
-import { getVilles } from '@/services/villeService';
-import { router } from 'expo-router';
-import FiltersModal from '@/components/FiltersModal';
-import { openDirections } from '@/utils/map';
+import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import PropertyCard from '@/components/PropertyCard';
 
 const { width, height } = Dimensions.get('window');
 
@@ -130,78 +130,9 @@ export default function AnnoncesScreen() {
   };
 
   const renderPropertyCard = ({ item }: { item: Annonce }) => (
-    <TouchableOpacity 
-      activeOpacity={0.9}
-      style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-      className="rounded-[32px] overflow-hidden border mb-6 mx-6"
-      onPress={() => router.push(`/annonces/${item.id}` as any)}
-    >
-      <View className="relative">
-        <Image 
-          source={{ uri: (item.images && item.images[0]?.url) || item.coverImageUrl || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800' }} 
-          className="h-64 w-full"
-          style={{ backgroundColor: colors.skeleton }}
-          resizeMode="cover"
-        />
-        <View style={{ backgroundColor: colors.teal }} className="absolute top-4 left-4 px-3 py-1.5 rounded-full shadow-lg shadow-black/40">
-          <Text className="text-white text-[10px] font-body-bold uppercase tracking-wider">{item.category?.name || 'Propriété'}</Text>
-        </View>
-        <TouchableOpacity style={{ backgroundColor: colors.overlay }} className="absolute top-4 right-4 w-10 h-10 rounded-full items-center justify-center backdrop-blur-md">
-          <Ionicons name="heart-outline" size={20} color="white" />
-        </TouchableOpacity>
-      </View>
-
-      <View className="p-6">
-        <View className="flex-row justify-between items-start mb-2">
-          <View className="flex-1 mr-2">
-            <Text style={{ color: colors.text }} className="text-xl font-body-bold mb-1" numberOfLines={1}>{item.title}</Text>
-            <View className="flex-row items-center">
-              <Ionicons name="location-outline" size={14} color={colors.textMuted} />
-              <Text style={{ color: colors.textMuted }} className="text-xs font-body ml-1" numberOfLines={1}>
-                {item.ville?.name}{item.commune?.name ? `, ${item.commune.name}` : ''}
-              </Text>
-            </View>
-          </View>
-          <View style={{ backgroundColor: colors.border }} className="flex-row items-center px-2 py-1 rounded-lg">
-            <Ionicons name="star" size={12} color={colors.star} />
-            <Text style={{ color: colors.text }} className="text-[10px] font-body-bold ml-1">{item.avgRating || '4.5'}</Text>
-          </View>
-        </View>
-
-        <View style={{ backgroundColor: colors.divider }} className="h-[1px] w-full my-4" />
-
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center gap-4">
-            <View className="flex-row items-center">
-              <Ionicons name="bed-outline" size={16} color={colors.teal} />
-              <Text style={{ color: colors.textSecondary }} className="text-xs font-body-medium ml-1">3 Ch.</Text>
-            </View>
-            <View className="flex-row items-center">
-              <Ionicons name="water-outline" size={16} color={colors.teal} />
-              <Text style={{ color: colors.textSecondary }} className="text-xs font-body-medium ml-1">2 Sdb.</Text>
-            </View>
-            <View className="flex-row items-center">
-              <Ionicons name="resize-outline" size={16} color={colors.teal} />
-              <Text style={{ color: colors.textSecondary }} className="text-xs font-body-medium ml-1">120m²</Text>
-            </View>
-          </View>
-          <View className="flex-row gap-2">
-            {item.latitude && item.longitude && (
-              <TouchableOpacity 
-                onPress={() => openDirections(item.latitude!, item.longitude!, item.title)}
-                style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-                className="w-10 h-10 rounded-xl border items-center justify-center"
-              >
-                <Ionicons name="navigate-outline" size={16} color={colors.teal} />
-              </TouchableOpacity>
-            )}
-            <View style={{ backgroundColor: colors.tealSoft }} className="px-3 py-2 rounded-xl justify-center h-10">
-              <Text style={{ color: colors.teal }} className="text-[10px] font-body-bold uppercase">Détails</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    </TouchableOpacity>
+    <View className="px-6">
+      <PropertyCard annonce={item} language="fr" />
+    </View>
   );
 
   return (

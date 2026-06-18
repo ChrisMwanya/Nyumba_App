@@ -96,6 +96,7 @@ function AppNavigator() {
               headerShadowVisible: false,
               headerBackTitle: '',
             }} />
+            <Stack.Screen name="annonces/directions" options={{ headerShown: false, presentation: 'modal' }} />
           </Stack>
           <StatusBar style={colors.statusBar} />
         </GestureHandlerRootView>

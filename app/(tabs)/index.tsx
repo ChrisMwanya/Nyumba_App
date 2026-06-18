@@ -24,7 +24,7 @@ import { getCategories } from '@/services/categoryService';
 import FiltersModal from '@/components/FiltersModal';
 import { router } from 'expo-router';
 import { getCategoryFeatures } from '@/constants/features';
-import { openDirections } from '@/utils/map';
+import PropertyCard from '@/components/PropertyCard';
 
 const CATEGORY_ICONS: Record<string, any> = {
   'restaurants': 'restaurant-outline',
@@ -34,6 +34,14 @@ const CATEGORY_ICONS: Record<string, any> = {
   'bistrots': 'beer-outline',
   'boites-nuits': 'flash-outline',
 };
+
+/** Display order for category filter chips */
+const CATEGORY_ORDER: string[] = [
+  'airbnbs',
+  'hotels',
+  'restaurants',
+  'coins-detente',
+];
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -72,7 +80,15 @@ export default function HomeScreen() {
         getCategories()
       ]);
       setAnnonces(annoncesRes?.data || []);
-      setCategories(categoriesRes || []);
+      const sortedCategories = [...(categoriesRes || [])].sort((a, b) => {
+        const indexA = CATEGORY_ORDER.indexOf(a.slug);
+        const indexB = CATEGORY_ORDER.indexOf(b.slug);
+        // Items not in order list go to end
+        const posA = indexA === -1 ? CATEGORY_ORDER.length : indexA;
+        const posB = indexB === -1 ? CATEGORY_ORDER.length : indexB;
+        return posA - posB;
+      });
+      setCategories(sortedCategories);
     } catch (error) {
       console.error('Error fetching home data:', error);
     } finally {
@@ -271,77 +287,7 @@ export default function HomeScreen() {
           ) : (
             <>
               {annonces.map((annonce) => (
-                <TouchableOpacity 
-                  key={annonce.id} 
-                  style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-                  className="rounded-[32px] overflow-hidden border mb-6"
-                  activeOpacity={0.9}
-                  onPress={() => router.push(`/annonces/${annonce.id}` as any)}
-                >
-                   <View className="relative">
-                     <Image 
-                       source={{ uri: (annonce.images && annonce.images[0]?.url) || annonce.coverImageUrl || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800' }} 
-                       className="h-64 w-full"
-                       style={{ backgroundColor: colors.skeleton }}
-                       resizeMode="cover"
-                     />
-                     <View style={{ backgroundColor: colors.teal }} className="absolute top-4 left-4 px-3 py-1.5 rounded-full shadow-lg shadow-black/40">
-                       <Text className="text-white text-[10px] font-body-bold uppercase tracking-wider">{annonce.category?.name || 'Propriété'}</Text>
-                     </View>
-                     <View style={{ backgroundColor: colors.overlay }} className="absolute top-4 right-4 px-3 py-2 rounded-2xl backdrop-blur-md">
-                        <View className="flex-row items-center">
-                          <Ionicons name="star" size={14} color={colors.star} />
-                          <Text className="text-white text-xs font-body-bold ml-1">{annonce.avgRating || '4.5'}</Text>
-                        </View>
-                     </View>
-                   </View>
-
-                   <View className="p-6">
-                     <View className="flex-row justify-between items-start mb-3">
-                       <View className="flex-1 mr-3">
-                          <Text style={{ color: colors.text }} className="text-xl font-body-bold" numberOfLines={1}>{annonce.title}</Text>
-                          <View className="flex-row items-center mt-1">
-                            <Ionicons name="location-outline" size={14} color={colors.icon} />
-                            <Text style={{ color: colors.textMuted }} className="text-xs font-body ml-1">{annonce.ville?.name}, {annonce.commune?.name || 'Gombe'}</Text>
-                          </View>
-                       </View>
-                       <View style={{ backgroundColor: colors.tealSoft }} className="px-3 py-1 rounded-lg">
-                          <Text style={{ color: colors.teal }} className="text-xs font-body-bold uppercase">{annonce.status}</Text>
-                       </View>
-                     </View>
-
-                     <View style={{ backgroundColor: colors.divider }} className="h-[1px] w-full my-4" />
-
-                     <View className="flex-row items-center justify-between">
-                        <View className="flex-row items-center gap-4">
-                          {getCategoryFeatures(annonce.category?.slug || '').slice(0, 2).map((feat, idx) => (
-                            <View key={idx} className="flex-row items-center">
-                              <Ionicons name={feat.icon as any} size={16} color={colors.teal} />
-                              <Text style={{ color: colors.textSecondary }} className="text-xs font-body-medium ml-1">{feat.value}</Text>
-                            </View>
-                          ))}
-                        </View>
-                        <View className="flex-row gap-2">
-                           {annonce.latitude && annonce.longitude && (
-                             <TouchableOpacity 
-                               onPress={() => openDirections(annonce.latitude!, annonce.longitude!, annonce.title)}
-                               style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-                               className="w-12 h-12 rounded-2xl border items-center justify-center"
-                             >
-                               <Ionicons name="navigate-outline" size={20} color={colors.teal} />
-                             </TouchableOpacity>
-                           )}
-                           <TouchableOpacity 
-                             onPress={() => router.push(`/annonces/${annonce.id}` as any)}
-                             style={{ backgroundColor: colors.teal }}
-                             className="px-6 py-4 rounded-2xl h-12 justify-center"
-                           >
-                             <Text className="text-white font-body-bold">{language === 'fr' ? 'Détails' : 'Details'}</Text>
-                           </TouchableOpacity>
-                        </View>
-                     </View>
-                   </View>
-                </TouchableOpacity>
+                <PropertyCard key={annonce.id} annonce={annonce} language={language} />
               ))}
               
               {annonces.length === 0 && (

@@ -123,7 +123,7 @@ export const Colors = {
 };
 
 /** Helper type representing all available token keys. */
-export type ThemeColors = typeof Colors.dark;
+export type ThemeColors = typeof Colors.dark | typeof Colors.light;
 
 /* ------------------------------------------------------------------ */
 /*  Fonts                                                              */

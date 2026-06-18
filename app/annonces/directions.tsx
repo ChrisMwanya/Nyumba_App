@@ -84,10 +84,14 @@ export default function DirectionsScreen() {
           setTimeout(() => {
             mapRef.current?.fitToCoordinates(
               [{ latitude: startLat, longitude: startLng }, { latitude: endLat, longitude: endLng }],
-              { edgePadding: { top: 100, right: 50, bottom: 150, left: 50 }, animated: true }
+              { edgePadding: { top: 100, right: 50, bottom: 250, left: 50 }, animated: true }
             );
           }, 1000);
         }
+      } else if (json.detailedError || json.error) {
+        Alert.alert('Aucun itinéraire', json.detailedError?.message || json.error?.description || 'Impossible de trouver un itinéraire entre ces deux points (océan ou distance trop grande).');
+      } else {
+        Alert.alert('Erreur', 'Aucun itinéraire trouvé.');
       }
     } catch (error) {
       console.error('Error fetching route from TomTom:', error);
@@ -99,20 +103,14 @@ export default function DirectionsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.bg, zIndex: 10 }}>
-        <View className="flex-row items-center px-4 py-4 border-b" style={{ borderBottomColor: colors.border }}>
-          <TouchableOpacity 
-            onPress={() => router.back()}
-            style={{ backgroundColor: colors.surface }}
-            className="w-10 h-10 rounded-full items-center justify-center mr-4"
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <View className="flex-1">
-            <Text style={{ color: colors.text }} className="text-lg font-body-bold">Itinéraire</Text>
-            <Text style={{ color: colors.textMuted }} className="text-xs font-body" numberOfLines={1}>Vers {destTitle}</Text>
-          </View>
-        </View>
+      <SafeAreaView edges={['top']} className="absolute top-0 left-0 right-0 z-20 px-6 pt-4">
+        <TouchableOpacity 
+          onPress={() => router.back()}
+          style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+          className="w-12 h-12 rounded-full items-center justify-center border shadow-sm"
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
+        </TouchableOpacity>
       </SafeAreaView>
 
       <View style={{ flex: 1 }}>
@@ -178,17 +176,29 @@ export default function DirectionsScreen() {
 
         {/* Route Info Bottom Sheet */}
         {!loading && routeInfo.time && (
-          <View style={{ backgroundColor: colors.surface, borderTopColor: colors.border }} className="absolute bottom-0 left-0 right-0 px-6 py-8 border-t rounded-t-[40px] shadow-2xl">
-             <View className="flex-row items-center justify-between mb-4">
-               <View>
-                 <Text style={{ color: colors.text }} className="text-3xl font-body-bold">{routeInfo.time}</Text>
-                 <Text style={{ color: colors.textMuted }} className="font-body text-base mt-1">{routeInfo.distance}</Text>
+          <View style={{ backgroundColor: colors.bg }} className="absolute bottom-0 left-0 right-0 rounded-t-[40px] shadow-2xl pt-8 pb-10 px-6">
+             {/* Small handle indicator */}
+             <View className="absolute top-3 left-1/2 -ml-6 w-12 h-1.5 rounded-full" style={{ backgroundColor: colors.border }} />
+             
+             <Text style={{ color: colors.textMuted }} className="font-body text-sm mb-2 uppercase tracking-widest">ITINÉRAIRE VERS</Text>
+             <Text style={{ color: colors.text }} className="text-2xl font-body-bold mb-6" numberOfLines={1}>{destTitle}</Text>
+             
+             <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="flex-row items-center justify-between p-6 rounded-[32px] border">
+               <View className="flex-row items-center">
+                 <View style={{ backgroundColor: colors.tealSoft }} className="w-14 h-14 rounded-2xl items-center justify-center mr-4">
+                   <Ionicons name="time-outline" size={28} color={colors.teal} />
+                 </View>
+                 <View>
+                   <Text style={{ color: colors.text }} className="text-3xl font-body-bold">{routeInfo.time}</Text>
+                   <Text style={{ color: colors.textMuted }} className="font-body text-sm mt-1">{routeInfo.distance}</Text>
+                 </View>
                </View>
+               
                <TouchableOpacity 
                  style={{ backgroundColor: colors.teal }}
-                 className="w-14 h-14 rounded-full items-center justify-center shadow-lg"
+                 className="w-16 h-16 rounded-2xl items-center justify-center shadow-lg"
                >
-                 <Ionicons name="navigate" size={24} color="white" />
+                 <Ionicons name="navigate" size={28} color="white" />
                </TouchableOpacity>
              </View>
           </View>
