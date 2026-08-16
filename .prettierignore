@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+.expo/
+.expo-shared/
+
+# Cache
+.cache/
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Generated files
+coverage/
+*.min.js
+*.min.css

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "nyumba_mobile",
-    "slug": "nyumba_mobile",
+    "slug": "nyumba",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.nyumba-mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +23,18 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "splash": {
+        "image": "./assets/images/splash-icon-dark.png",
+        "imageWidth": 200,
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff",
+        "dark": {
+          "image": "./assets/images/splash-icon-light.png",
+          "backgroundColor": "#000000"
+        }
+      },
+      "package": "com.chrismwanya.nyumba"
     },
     "web": {
       "output": "static",
@@ -30,19 +45,42 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
+          "ios": {
+            "image": "./assets/images/splash-icon-dark.png",
+            "imageWidth": 200,
+            "resizeMode": "cover",
+            "backgroundColor": "#ffffff",
+            "dark": {
+              "image": "./assets/images/splash-icon-light.png",
+              "backgroundColor": "#000000"
+            }
+          },
+          "android": {
+            "image": "./assets/images/splash-icon-dark.png",
+            "imageWidth": 200,
+            "resizeMode": "cover",
+            "backgroundColor": "#ffffff",
+            "dark": {
+              "image": "./assets/images/splash-icon-light.png",
+              "backgroundColor": "#000000"
+            }
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0554cae7-ffc8-43ba-a042-cea23d7b5c96"
+      }
+    },
+    "owner": "chrismwanya"
   }
 }
