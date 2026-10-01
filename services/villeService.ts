@@ -1,10 +1,7 @@
 import { apiRequest } from './api';
-import { Ville } from './annonceService';
+import type { Ville } from './annonceService';
 
+// GET /api/locations — liste des villes
 export function getVilles(): Promise<Ville[]> {
-  return apiRequest<Ville[]>('/villes');
-}
-
-export function getVilleById(id: number): Promise<Ville> {
-  return apiRequest<Ville>(`/villes/${id}`);
+  return apiRequest<Ville[]>('/locations');
 }

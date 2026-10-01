@@ -1,102 +1,201 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import React from 'react';
+import { Image, Text, TouchableOpacity, View } from 'react-native';
+
+import FavoriteButton from '@/components/FavoriteButton';
+import { STAR_COLOR } from '@/components/StarRating';
+import {
+  CATEGORY_INK,
+  getCategoryColor,
+  getCategoryIcon,
+} from '@/constants/categories';
+import { getDynamicFeatures, type FeatureItem } from '@/constants/features';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Annonce } from '@/services/annonceService';
-import { getCategoryFeatures, getDynamicFeatures } from '@/constants/features';
+import { formatDistance } from '@/utils/geo';
 import { openDirections } from '@/utils/map';
+
+const PLACEHOLDER_IMAGE =
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800';
+
+/**
+ * Un attribut booléen vaut « Oui » : affiché seul à côté d'une icône, ça ne
+ * veut rien dire. On montre alors son libellé — « Terrasse » plutôt que « Oui ».
+ */
+const featureText = (feature: FeatureItem) =>
+  feature.value === 'Oui' ? feature.label : feature.value;
 
 interface PropertyCardProps {
   annonce: Annonce;
   language?: 'fr' | 'en';
+  /** Distance depuis l'utilisateur, en km, si elle est connue. */
+  distance?: number;
 }
 
-export default function PropertyCard({ annonce, language = 'fr' }: PropertyCardProps) {
+export default function PropertyCard({
+  annonce,
+  language = 'fr',
+  distance,
+}: PropertyCardProps) {
   const { colors } = useTheme();
 
+  const tint = getCategoryColor(annonce.category?.slug);
+  const features = getDynamicFeatures(annonce).slice(0, 2);
+  const readableDistance = formatDistance(distance);
+  const hasCoordinates =
+    annonce.latitude !== undefined && annonce.longitude !== undefined;
+
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-      className="rounded-[32px] overflow-hidden border mb-6"
+      className="mb-4 overflow-hidden rounded-3xl border"
       activeOpacity={0.9}
       onPress={() => router.push(`/annonces/${annonce.id}` as any)}
     >
-       <View className="relative">
-         <Image 
-           source={{ uri: (annonce.images && annonce.images[0]?.url) || annonce.coverImageUrl || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800' }} 
-           className="h-64 w-full"
-           style={{ backgroundColor: colors.skeleton }}
-           resizeMode="cover"
-         />
-         <View style={{ backgroundColor: colors.teal }} className="absolute top-4 left-4 px-3 py-1.5 rounded-full shadow-lg shadow-black/40">
-           <Text className="text-white text-[10px] font-body-bold uppercase tracking-wider">{annonce.category?.name || 'Propriété'}</Text>
-         </View>
-         <View style={{ backgroundColor: colors.overlay }} className="absolute top-4 right-4 px-3 py-2 rounded-2xl backdrop-blur-md">
-            <View className="flex-row items-center">
-              <Ionicons name="star" size={14} color={colors.star} />
-              <Text className="text-white text-xs font-body-bold ml-1">{annonce.avgRating || '4.5'}</Text>
-            </View>
-         </View>
-       </View>
+      <View className="relative">
+        <Image
+          source={{ uri: annonce.images[0]?.url || PLACEHOLDER_IMAGE }}
+          className="h-44 w-full"
+          style={{ backgroundColor: colors.skeleton }}
+          resizeMode="cover"
+        />
 
-       <View className="p-6">
-         <View className="flex-row justify-between items-start mb-3">
-           <View className="flex-1 mr-3">
-              <Text style={{ color: colors.text }} className="text-xl font-body-bold" numberOfLines={1}>{annonce.title}</Text>
-              <View className="flex-row items-center mt-1">
-                <Ionicons name="location-outline" size={14} color={colors.icon} />
-                <Text style={{ color: colors.textMuted }} className="text-xs font-body ml-1">
-                  {annonce.ville?.name}{annonce.commune?.name ? `, ${annonce.commune.name}` : ''}
-                </Text>
-              </View>
-           </View>
-           {annonce.status && (
-             <View style={{ backgroundColor: colors.tealSoft }} className="px-3 py-1 rounded-lg">
-                <Text style={{ color: colors.teal }} className="text-xs font-body-bold uppercase">{annonce.status}</Text>
-             </View>
-           )}
-         </View>
+        {/* Catégorie et prix posés sur la photo : l'information tient dans la
+            hauteur de l'image au lieu d'ajouter des lignes sous elle. */}
+        <View
+          style={{ backgroundColor: tint }}
+          className="absolute bottom-3 left-3 flex-row items-center rounded-full px-3 py-1.5"
+        >
+          <Ionicons
+            name={getCategoryIcon(annonce.category?.slug ?? '')}
+            size={12}
+            color={CATEGORY_INK}
+          />
+          <Text
+            style={{ color: CATEGORY_INK }}
+            className="ml-1.5 font-body-semibold text-[11px]"
+          >
+            {annonce.category?.name ?? (language === 'fr' ? 'Lieu' : 'Place')}
+          </Text>
+        </View>
 
-         <View style={{ backgroundColor: colors.divider }} className="h-[1px] w-full my-4" />
+        {annonce.rating.count > 0 && (
+          <View
+            className="absolute left-3 top-3 flex-row items-center rounded-full bg-black/65 px-2.5 py-1.5"
+            accessible
+            accessibilityLabel={
+              language === 'fr'
+                ? `Noté ${annonce.rating.average} sur 5 par ${annonce.rating.count} personnes`
+                : `Rated ${annonce.rating.average} out of 5 by ${annonce.rating.count} people`
+            }
+          >
+            <Ionicons name="star" size={12} color={STAR_COLOR} />
+            <Text className="ml-1 font-body-bold text-[11px] text-white">
+              {language === 'fr'
+                ? annonce.rating.average.toFixed(1).replace('.', ',')
+                : annonce.rating.average.toFixed(1)}
+            </Text>
+            <Text className="ml-1 font-body text-[11px] text-white/70">
+              ({annonce.rating.count})
+            </Text>
+          </View>
+        )}
 
-         <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-4">
-              {getDynamicFeatures(annonce).slice(0, 2).map((feat, idx) => (
-                <View key={idx} className="flex-row items-center">
-                  <Ionicons name={feat.icon as any} size={16} color={colors.teal} />
-                  <Text style={{ color: colors.textSecondary }} className="text-xs font-body-medium ml-1">{feat.value}</Text>
+        <FavoriteButton annonce={annonce} className="absolute right-3 top-3" />
+
+        {annonce.priceRange && (
+          <View className="absolute bottom-3 right-3 rounded-full bg-black/65 px-3 py-1.5">
+            <Text className="font-body-bold text-[11px] text-white">
+              {annonce.priceRange}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <View className="flex-row items-start p-4">
+        <View className="mr-3 flex-1">
+          <Text
+            style={{ color: colors.text }}
+            className="font-body-bold text-lg"
+            numberOfLines={1}
+          >
+            {annonce.title}
+          </Text>
+
+          <View className="mt-1 flex-row items-center">
+            <Ionicons name="location-outline" size={13} color={colors.icon} />
+            <Text
+              style={{ color: colors.textMuted }}
+              className="ml-1 flex-1 font-body text-xs"
+              numberOfLines={1}
+            >
+              {[annonce.address, annonce.ville?.name]
+                .filter(Boolean)
+                .join(', ')}
+            </Text>
+            {readableDistance && (
+              <Text
+                style={{ color: colors.teal }}
+                className="ml-2 font-body-bold text-xs"
+              >
+                {readableDistance}
+              </Text>
+            )}
+          </View>
+
+          {features.length > 0 && (
+            <View className="mt-2.5 flex-row items-center">
+              {features.map((feature, index) => (
+                <View key={feature.label} className="flex-row items-center">
+                  {index > 0 && (
+                    <Text
+                      style={{ color: colors.textMuted }}
+                      className="mx-2 font-body text-xs"
+                    >
+                      ·
+                    </Text>
+                  )}
+                  <Ionicons
+                    name={feature.icon as any}
+                    size={13}
+                    color={colors.textSecondary}
+                  />
+                  <Text
+                    style={{ color: colors.textSecondary }}
+                    className="ml-1 font-body-medium text-xs"
+                    numberOfLines={1}
+                  >
+                    {featureText(feature)}
+                  </Text>
                 </View>
               ))}
-              {getDynamicFeatures(annonce).length === 0 && (
-                <>
-                  <View className="flex-row items-center">
-                    <Ionicons name="bed-outline" size={16} color={colors.teal} />
-                    <Text style={{ color: colors.textSecondary }} className="text-xs font-body-medium ml-1">3 Ch.</Text>
-                  </View>
-                  <View className="flex-row items-center">
-                    <Ionicons name="water-outline" size={16} color={colors.teal} />
-                    <Text style={{ color: colors.textSecondary }} className="text-xs font-body-medium ml-1">2 Sdb.</Text>
-                  </View>
-                </>
-              )}
             </View>
+          )}
+        </View>
 
-         </View>
-
-         {annonce.latitude && annonce.longitude && (
-           <TouchableOpacity 
-             onPress={() => openDirections(annonce.latitude!, annonce.longitude!, annonce.title)}
-             style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-             className="w-full mt-4 h-12 rounded-2xl border flex-row items-center justify-center"
-           >
-             <Ionicons name="navigate-outline" size={20} color={colors.teal} />
-             <Text style={{ color: colors.text }} className="ml-2 font-body-bold">
-               {language === 'fr' ? 'Voir l\'itinéraire' : 'Get Directions'}
-             </Text>
-           </TouchableOpacity>
-         )}
-       </View>
+        {hasCoordinates && (
+          <TouchableOpacity
+            onPress={() =>
+              openDirections(
+                annonce.latitude!,
+                annonce.longitude!,
+                annonce.title,
+                language
+              )
+            }
+            style={{ backgroundColor: colors.cta }}
+            className="h-11 w-11 items-center justify-center rounded-full"
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={
+              language === 'fr' ? "Voir l'itinéraire" : 'Get directions'
+            }
+          >
+            <Ionicons name="navigate" size={18} color={colors.ctaText} />
+          </TouchableOpacity>
+        )}
+      </View>
     </TouchableOpacity>
   );
 }

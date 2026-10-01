@@ -1,122 +1,57 @@
 import { apiRequest } from './api';
 
+export type CategoryAttribute = {
+  id: string;
+  categoryId: string;
+  key: string;
+  label: string;
+  type: 'NUMBER' | 'TEXT' | 'BOOLEAN' | 'SELECT' | 'MULTISELECT';
+  options?: string[] | null;
+  isRequired: boolean;
+  order: number;
+};
+
 export type Category = {
-  id: number;
+  id: string;
   name: string;
   slug: string;
-  description?: string;
-  icon?: string;
+  icon?: string | null;
+  isActive?: boolean;
+  attributeDefinitions?: CategoryAttribute[];
 };
 
 export type Ville = {
-  id: number;
+  id: string;
   name: string;
-  code?: string;
-  region?: string;
-  latitude?: number;
-  longitude?: number;
+  country: string;
 };
 
 export type AnnonceImage = {
-  id: number;
+  id: string;
   url: string;
-  isMain: boolean;
-};
-
-export type Amenity = {
-  id: number;
-  name: string;
-  icon?: string;
-  type?: string;
-};
-
-export type RestaurantDetail = {
-  id: number;
-  cuisineType?: string;
-  menuUrl?: string;
-  openingHours?: string;
-  hasDelivery: boolean;
-  hasReservation: boolean;
-  averagePrice?: number;
-  alcoholAvailable: boolean;
-};
-
-export type HotelDetail = {
-  id: number;
-  stars?: number;
-  checkInTime?: string;
-  checkOutTime?: string;
-  hasPool: boolean;
-  hasWifi: boolean;
-  hasParking: boolean;
-  hasBreakfast: boolean;
-};
-
-export type AccommodationDetail = {
-  id: number;
-  numberOfRooms?: number;
-  numberOfBeds?: number;
-  maxGuests?: number;
-  hasKitchen: boolean;
-  hasWifi: boolean;
-  hasAirConditioning: boolean;
-  pricePerNight?: number;
-};
-
-export type ClubDetail = {
-  id: number;
-  musicType?: string;
-  dressCode?: string;
-  entranceFee?: number;
-  minimumAge?: number;
-  openingDays?: string;
-  vipAvailable: boolean;
-};
-
-export type Annonceur = {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  address?: string;
-  type: 'agence' | 'particulier';
-  logoUrl?: string;
 };
 
 export type Annonce = {
-  id: number;
+  id: string;
+  slug: string;
   title: string;
   description?: string;
-  type?: 'restaurant' | 'hotel' | 'accommodation' | 'club';
-  price: number;
-  currency: string;
-  address?: string;
+  address: string;
+  // Gamme de prix libre ("$$", "$$$$"…) : l'API ne fournit pas de tarif chiffré
+  priceRange?: string;
   latitude?: number;
   longitude?: number;
-  avgRating?: number;
-  phone?: string;
-  email?: string;
-  website?: string;
-  metadata?: any;
-  status: 'available' | 'rented' | 'sold';
-  categoryId: number;
-  villeId: number;
-  communeId?: number;
-  userId: number;
-  annonceurId: number;
-  coverImageUrl?: string;
-  category?: Category;
+  // Distance en mètres, renseignée par la recherche de proximité
+  distance?: number;
+  // Attributs dynamiques définis par la catégorie (stars, wifi, cuisine_type…)
+  attributes: Record<string, unknown>;
+  categoryId: string;
+  villeId?: string;
+  category?: Pick<Category, 'id' | 'name' | 'slug'>;
   ville?: Ville;
-  commune?: { id: number; name: string };
-  annonceur?: Annonceur;
-  images?: AnnonceImage[];
-  amenities?: Amenity[];
-  restaurantDetail?: RestaurantDetail;
-  hotelDetail?: HotelDetail;
-  accommodationDetail?: AccommodationDetail;
-  clubDetail?: ClubDetail;
-  avis?: any[];
-  reservations?: any[];
+  images: AnnonceImage[];
+  owner?: { id: string; fullName: string };
+  rating: ListingRating;
   createdAt: string;
   updatedAt: string;
 };
@@ -124,10 +59,9 @@ export type Annonce = {
 export type PaginatedResponse<T> = {
   meta: {
     total: number;
-    perPage: number;
-    currentPage: number;
-    lastPage: number;
-    firstPage: number;
+    page: number;
+    limit: number;
+    totalPages: number;
   };
   data: T[];
 };
@@ -135,33 +69,160 @@ export type PaginatedResponse<T> = {
 export type AnnonceFilters = {
   page?: number;
   limit?: number;
-  category_id?: number;
-  ville_id?: number;
-  commune_id?: number;
-  status?: string;
+  categoryId?: string;
+  cityId?: string;
+  // Pas de recherche texte côté API : filtrée localement sur les résultats reçus
   search?: string;
-  min_price?: number;
-  max_price?: number;
-  min_rating?: number;
+  // Recherche par proximité, rayon en km
   lat?: number;
   lng?: number;
   radius?: number;
+  // « rating » : les mieux notées d'abord (ignoré par la recherche de proximité)
+  sort?: 'rating';
 };
 
-export function getAnnonces(filters: AnnonceFilters = {}): Promise<PaginatedResponse<Annonce>> {
-  const queryParams = new URLSearchParams();
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      queryParams.append(key, value.toString());
-    }
-  });
+export type ListingRating = {
+  // Arrondie au dixième par l'API ; 0 tant que personne n'a noté
+  average: number;
+  count: number;
+};
 
-  const queryString = queryParams.toString();
-  const path = `/annonces${queryString ? `?${queryString}` : ''}`;
+export type Review = {
+  id: string;
+  listingId: string;
+  userId: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+};
 
-  return apiRequest<PaginatedResponse<Annonce>>(path);
+const NO_RATING: ListingRating = { average: 0, count: 0 };
+
+// Listing tel que renvoyé par ApiExpress
+export type ApiListing = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  address: string;
+  categoryId: string;
+  cityId: string | null;
+  priceRange: string | null;
+  attributes?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  category?: { id: string; name: string; slug: string };
+  city?: Ville | null;
+  images?: { id: string; url: string; order: number }[];
+  owner?: { id: string; fullName: string };
+  lat?: number | null;
+  lng?: number | null;
+  distance?: number;
+  rating?: ListingRating;
+};
+
+export function toAnnonce(listing: ApiListing): Annonce {
+  return {
+    id: listing.id,
+    slug: listing.slug,
+    title: listing.name,
+    description: listing.description ?? undefined,
+    address: listing.address,
+    priceRange: listing.priceRange ?? undefined,
+    latitude: listing.lat ?? undefined,
+    longitude: listing.lng ?? undefined,
+    distance: listing.distance,
+    attributes: listing.attributes ?? {},
+    categoryId: listing.categoryId,
+    villeId: listing.cityId ?? undefined,
+    category: listing.category,
+    ville: listing.city ?? undefined,
+    images: (listing.images ?? []).map(({ id, url }) => ({ id, url })),
+    owner: listing.owner,
+    rating: listing.rating ?? NO_RATING,
+    createdAt: listing.createdAt,
+    updatedAt: listing.updatedAt,
+  };
 }
 
-export function getAnnonceById(id: number): Promise<Annonce> {
-  return apiRequest<Annonce>(`/annonces/${id}`);
+function toQuery(params: Record<string, string | number | undefined>): string {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') {
+      query.append(key, value.toString());
+    }
+  });
+  return query.toString();
+}
+
+// GET /api/listings (filtres : categoryId, cityId) ou GET /api/listings/nearby si lat/lng
+export async function getAnnonces(
+  filters: AnnonceFilters = {}
+): Promise<PaginatedResponse<Annonce>> {
+  const { search, lat, lng, radius, ...rest } = filters;
+  let result: PaginatedResponse<Annonce>;
+
+  if (lat !== undefined && lng !== undefined) {
+    // /nearby n'est pas paginé et ne renvoie ni images, ni catégorie, ni ville
+    const query = toQuery({
+      lat,
+      lng,
+      radius: radius !== undefined ? radius * 1000 : undefined,
+      categoryId: rest.categoryId,
+    });
+    const listings = await apiRequest<ApiListing[]>(
+      `/listings/nearby?${query}`
+    );
+    const data = listings.map(toAnnonce);
+    result = {
+      data,
+      meta: { total: data.length, page: 1, limit: data.length, totalPages: 1 },
+    };
+  } else {
+    const query = toQuery(rest);
+    const page = await apiRequest<PaginatedResponse<ApiListing>>(
+      `/listings${query ? `?${query}` : ''}`
+    );
+    result = { ...page, data: page.data.map(toAnnonce) };
+  }
+
+  const needle = search?.trim().toLowerCase();
+  if (!needle) return result;
+
+  return {
+    ...result,
+    data: result.data.filter(annonce =>
+      [annonce.title, annonce.description, annonce.address].some(field =>
+        field?.toLowerCase().includes(needle)
+      )
+    ),
+  };
+}
+
+// GET /api/listings/{id}
+export async function getAnnonceById(id: string): Promise<Annonce> {
+  return toAnnonce(await apiRequest<ApiListing>(`/listings/${id}`));
+}
+
+// GET /api/listings/{id}/reviews/me — null si l'utilisateur n'a pas encore noté
+export async function getMyReview(
+  listingId: string,
+  token: string
+): Promise<Review | null> {
+  return apiRequest<Review | null>(`/listings/${listingId}/reviews/me`, {
+    token,
+  });
+}
+
+// POST /api/listings/{id}/reviews — crée ou remplace la note de l'utilisateur
+export async function rateListing(
+  listingId: string,
+  rating: number,
+  token: string
+): Promise<{ review: Review; summary: ListingRating }> {
+  return apiRequest(`/listings/${listingId}/reviews`, {
+    method: 'POST',
+    body: { rating },
+    token,
+  });
 }

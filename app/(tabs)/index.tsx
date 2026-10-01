@@ -1,41 +1,49 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  ScrollView, 
-  TouchableOpacity, 
-  Image, 
-  TextInput, 
-  ActivityIndicator, 
-  RefreshControl,
-  Alert
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import FiltersModal, {
+  countActiveFilters,
+  EMPTY_SELECTION,
+  type FilterSelection,
+} from '@/components/FiltersModal';
+import PropertyCard from '@/components/PropertyCard';
+import AnnonceSheet, { SHEET_SNAP_POINTS } from '@/components/map/AnnonceSheet';
+import ExploreMap, { type ExploreMapHandle } from '@/components/map/ExploreMap';
+import { getCategoryIcon } from '@/constants/categories';
+import { CAMERA } from '@/constants/map';
+import { FloatShadow, Tiles } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePreferences } from '@/contexts/PreferencesContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import * as Location from 'expo-location';
-import { 
-  getAnnonces, 
-  Annonce, 
-  Category, 
-  AnnonceFilters 
+import { useUserLocation } from '@/hooks/useUserLocation';
+import {
+  getAnnonces,
+  type Annonce,
+  type Category,
 } from '@/services/annonceService';
 import { getCategories } from '@/services/categoryService';
-import FiltersModal from '@/components/FiltersModal';
-import { router } from 'expo-router';
-import { getCategoryFeatures } from '@/constants/features';
-import PropertyCard from '@/components/PropertyCard';
+import { distanceKm } from '@/utils/geo';
 
-const CATEGORY_ICONS: Record<string, any> = {
-  'restaurants': 'restaurant-outline',
-  'hotels': 'bed-outline',
-  'airbnbs': 'home-outline',
-  'coins-detente': 'wine-outline',
-  'bistrots': 'beer-outline',
-  'boites-nuits': 'flash-outline',
-};
-
-/** Display order for category filter chips */
+/** Ordre d'affichage par défaut des puces de catégorie. */
 const CATEGORY_ORDER: string[] = [
   'airbnbs',
   'hotels',
@@ -43,274 +51,845 @@ const CATEGORY_ORDER: string[] = [
   'coins-detente',
 ];
 
+/**
+ * La carte affiche tout ce qu'elle reçoit : on demande donc une page large
+ * plutôt que les 10 annonces de l'ancienne liste paginée.
+ */
+const MAP_PAGE_SIZE = 100;
+
+/** Rayons du filtre « autour de moi », en km. Un tap sur la pastille passe au suivant. */
+const RADIUS_STEPS = [2, 5, 10, 20] as const;
+
+type ViewMode = 'map' | 'list';
+type Language = 'fr' | 'en';
+
+/** Libellés de l'accueil. La bascule FR/EN de la barre du haut pilote ce choix. */
+const LABELS = {
+  fr: {
+    searchPlaceholder: 'Dites-moi ce que vous cherchez',
+    topRated: 'Les mieux notés',
+    hello: 'Bonjour,',
+    guest: 'bienvenue',
+    places: 'lieux',
+    map: 'Carte',
+    list: 'Liste',
+    empty: 'Aucun résultat',
+    emptyHint: 'Essayez de modifier vos filtres ou votre recherche.',
+    all: 'Tous',
+    noMatch: 'Aucun lieu ne correspond à votre recherche',
+    noCoordinates:
+      "Ces lieux n'ont pas encore de coordonnées : ils n'apparaissent que dans la vue Liste.",
+    nothingToShow: 'Aucun lieu à afficher pour le moment',
+    seeList: 'Voir la liste',
+    nearbyOn: 'Autour de moi',
+    noNearby: 'Aucun lieu dans ce rayon',
+    widenRadius: 'Élargir',
+    locationOffTitle: 'Position désactivée',
+    locationOffBody:
+      "Nyumba n'a pas accès à votre position, la carte ne peut donc pas vous situer ni trier les lieux par proximité. Vous pouvez l'autoriser dans les réglages.",
+    openSettings: 'Ouvrir les réglages',
+    cancel: 'Plus tard',
+  },
+  en: {
+    searchPlaceholder: 'Tell me what you are looking for',
+    topRated: 'Top rated',
+    hello: 'Hello,',
+    guest: 'welcome',
+    places: 'places',
+    map: 'Map',
+    list: 'List',
+    empty: 'No results',
+    emptyHint: 'Try changing your filters or your search.',
+    all: 'All',
+    noMatch: 'No place matches your search',
+    noCoordinates:
+      'These places have no coordinates yet: they only show up in List view.',
+    nothingToShow: 'Nothing to show yet',
+    seeList: 'See the list',
+    nearbyOn: 'Around me',
+    noNearby: 'No place within this radius',
+    widenRadius: 'Widen',
+    locationOffTitle: 'Location off',
+    locationOffBody:
+      'Nyumba cannot access your location, so the map cannot centre on you or sort places by distance. You can allow it in Settings.',
+    openSettings: 'Open Settings',
+    cancel: 'Later',
+  },
+} as const;
+
 export default function HomeScreen() {
   const { user } = useAuth();
-  const { colors, mode, setMode } = useTheme();
+  const { preferences } = usePreferences();
+  const { colors } = useTheme();
+  const tabBarHeight = useBottomTabBarHeight();
+  const { coords, permission, request } = useUserLocation();
+  const map = useRef<ExploreMapHandle>(null);
+
   const [annonces, setAnnonces] = useState<Annonce[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    null
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [language, setLanguage] = useState<'fr' | 'en'>('fr');
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [useGPS, setUseGPS] = useState(false);
-  
-  const [filters, setFilters] = useState<AnnonceFilters>({
-    page: 1,
-    limit: 10,
-    status: 'available',
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>('map');
+  const [in3D, setIn3D] = useState(true);
+  const [selected, setSelected] = useState<Annonce | null>(null);
+  const [language, setLanguage] = useState<Language>('fr');
+  // Filtre de proximité : éteint, toute la ville ; allumé, seulement `radiusKm`.
+  const [nearbyOnly, setNearbyOnly] = useState(false);
+  const [radiusKm, setRadiusKm] = useState<number>(RADIUS_STEPS[1]);
+  // Le bandeau (recherche + catégories) flotte au-dessus de la carte : la liste
+  // doit réserver exactement sa hauteur, qui varie avec l'encoche de l'appareil.
+  const [headerHeight, setHeaderHeight] = useState(200);
 
-  const fetchData = useCallback(async (currentFilters: AnnonceFilters) => {
-    setLoading(true);
+  const t = LABELS[language];
+  // Prénom seul : le nom complet déborde de la pastille sur un écran étroit.
+  const firstName = user?.fullName?.trim().split(/\s+/)[0];
+
+  const [selection, setSelection] = useState<FilterSelection>({
+    ...EMPTY_SELECTION,
+    cityId: preferences?.cityId ?? undefined,
+  });
+  const activeFilterCount = countActiveFilters(selection);
+
+  const fetchData = useCallback(async () => {
     try {
       const [annoncesRes, categoriesRes] = await Promise.all([
+        // La recherche texte est filtrée côté client (cf. `annonceService`) :
+        // inutile de rappeler l'API à chaque frappe.
+        // Les mieux notées d'abord : c'est l'ordre de la vue Liste, et si le
+        // catalogue dépasse une page, ce sont elles qu'on garde.
         getAnnonces({
-          ...currentFilters,
-          category_id: selectedCategoryId || undefined,
-          search: searchQuery || undefined,
-          ...(useGPS && location ? { 
-            lat: location.coords.latitude, 
-            lng: location.coords.longitude,
-            radius: 50 // 50km radius
-          } : {})
+          page: 1,
+          limit: MAP_PAGE_SIZE,
+          sort: 'rating',
+          cityId: selection.cityId,
+          categoryId: selectedCategoryId ?? undefined,
         }),
-        getCategories()
+        getCategories(),
       ]);
-      setAnnonces(annoncesRes?.data || []);
-      const sortedCategories = [...(categoriesRes || [])].sort((a, b) => {
-        const indexA = CATEGORY_ORDER.indexOf(a.slug);
-        const indexB = CATEGORY_ORDER.indexOf(b.slug);
-        // Items not in order list go to end
-        const posA = indexA === -1 ? CATEGORY_ORDER.length : indexA;
-        const posB = indexB === -1 ? CATEGORY_ORDER.length : indexB;
-        return posA - posB;
-      });
-      setCategories(sortedCategories);
+
+      setAnnonces(annoncesRes?.data ?? []);
+
+      // Catégories choisies à l'onboarding en premier, puis l'ordre par défaut.
+      const preferred = preferences?.categoryIds ?? [];
+      const rank = (category: Category) => {
+        const preferredIndex = preferred.indexOf(category.id);
+        if (preferredIndex !== -1) return preferredIndex;
+        const index = CATEGORY_ORDER.indexOf(category.slug);
+        return (
+          preferred.length + (index === -1 ? CATEGORY_ORDER.length : index)
+        );
+      };
+      setCategories(
+        [...(categoriesRes ?? [])].sort((a, b) => rank(a) - rank(b))
+      );
     } catch (error) {
       console.error('Error fetching home data:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCategoryId, searchQuery, useGPS, location]);
+  }, [selection.cityId, selectedCategoryId, preferences]);
 
   useEffect(() => {
-    fetchData(filters);
-  }, [fetchData, filters]);
+    fetchData();
+  }, [fetchData]);
+
+  /**
+   * Annonces filtrées par la recherche. La liste garde l'ordre de l'API (les
+   * mieux notées d'abord) ; la carte les trie du plus proche au plus loin.
+   */
+  const visibleAnnonces = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase();
+    const matching = needle
+      ? annonces.filter(annonce =>
+          [
+            annonce.title,
+            annonce.description,
+            annonce.address,
+            annonce.ville?.name,
+          ].some(field => field?.toLowerCase().includes(needle))
+        )
+      : annonces;
+
+    const inPriceRange =
+      selection.priceRanges.length > 0
+        ? matching.filter(
+            annonce =>
+              annonce.priceRange !== undefined &&
+              selection.priceRanges.includes(annonce.priceRange)
+          )
+        : matching;
+
+    if (!coords) return inPriceRange;
+
+    const withinRadius = nearbyOnly
+      ? inPriceRange.filter(annonce => {
+          if (
+            annonce.latitude === undefined ||
+            annonce.longitude === undefined
+          ) {
+            // Sans coordonnées, impossible d'affirmer que le lieu est proche.
+            return false;
+          }
+          return (
+            distanceKm(coords, {
+              latitude: annonce.latitude,
+              longitude: annonce.longitude,
+            }) <= radiusKm
+          );
+        })
+      : inPriceRange;
+
+    if (viewMode === 'list') return withinRadius;
+
+    return [...withinRadius].sort((a, b) => {
+      const distanceA =
+        a.latitude !== undefined && a.longitude !== undefined
+          ? distanceKm(coords, { latitude: a.latitude, longitude: a.longitude })
+          : Infinity;
+      const distanceB =
+        b.latitude !== undefined && b.longitude !== undefined
+          ? distanceKm(coords, { latitude: b.latitude, longitude: b.longitude })
+          : Infinity;
+      return distanceA - distanceB;
+    });
+  }, [
+    annonces,
+    searchQuery,
+    coords,
+    nearbyOnly,
+    radiusKm,
+    selection.priceRanges,
+    viewMode,
+  ]);
+
+  /** Seules les annonces géolocalisées peuvent être posées sur la carte. */
+  const mappable = useMemo(
+    () =>
+      visibleAnnonces.filter(
+        annonce =>
+          annonce.latitude !== undefined && annonce.longitude !== undefined
+      ),
+    [visibleAnnonces]
+  );
+
+  // Sans ça, filtrer les épingles est invisible : les résultats restants
+  // peuvent être hors champ et la carte semble simplement se vider.
+  useEffect(() => {
+    if (viewMode !== 'map' || !searchQuery.trim() || mappable.length === 0)
+      return;
+    map.current?.fitTo(
+      mappable.map(annonce => ({
+        latitude: annonce.latitude!,
+        longitude: annonce.longitude!,
+      })),
+      { bottomPadding: tabBarHeight }
+    );
+  }, [mappable, searchQuery, viewMode, tabBarHeight]);
+
+  const selectedDistance = useMemo(() => {
+    if (!coords || !selected?.latitude || !selected?.longitude)
+      return undefined;
+    return distanceKm(coords, {
+      latitude: selected.latitude,
+      longitude: selected.longitude,
+    });
+  }, [coords, selected]);
+
+  /**
+   * Pourquoi la carte est vide. Sans ce message, une recherche sans résultat et
+   * un jeu de données sans coordonnées sont indiscernables : dans les deux cas
+   * l'utilisateur ne voit qu'une carte nue.
+   */
+  const emptyMapReason = useMemo(() => {
+    if (loading || mappable.length > 0) return null;
+    if (searchQuery.trim()) return t.noMatch;
+    if (nearbyOnly) return t.noNearby;
+    if (visibleAnnonces.length > 0) return t.noCoordinates;
+    return t.nothingToShow;
+  }, [
+    loading,
+    mappable.length,
+    searchQuery,
+    nearbyOnly,
+    visibleAnnonces.length,
+    t,
+  ]);
+
+  const handleSelect = useCallback(
+    (annonce: Annonce | null) => {
+      setSelected(annonce);
+      if (!annonce?.latitude || !annonce?.longitude) return;
+      // La fiche masque le bas de l'écran : on recadre au-dessus d'elle.
+      map.current?.focusOn(
+        { latitude: annonce.latitude, longitude: annonce.longitude },
+        { bottomPadding: SHEET_SNAP_POINTS[0] + tabBarHeight }
+      );
+    },
+    [tabBarHeight]
+  );
+
+  /** Allume / éteint le filtre de proximité. */
+  const toggleNearby = useCallback(async () => {
+    if (nearbyOnly) {
+      setNearbyOnly(false);
+      return;
+    }
+
+    // Une fois la permission refusée, iOS ne réaffiche plus jamais sa demande :
+    // `request()` échouerait en silence. On renvoie donc vers les réglages.
+    if (permission === 'denied') {
+      Alert.alert(t.locationOffTitle, t.locationOffBody, [
+        { text: t.cancel, style: 'cancel' },
+        { text: t.openSettings, onPress: () => Linking.openSettings() },
+      ]);
+      return;
+    }
+
+    const next = coords ?? (await request());
+    if (!next) return;
+    setNearbyOnly(true);
+    setSelected(null);
+    map.current?.focusOn(next, { zoom: CAMERA.zoom });
+  }, [coords, nearbyOnly, permission, request, t]);
+
+  /** Passe au rayon suivant, en boucle. */
+  const cycleRadius = useCallback(() => {
+    setRadiusKm(current => {
+      const index = RADIUS_STEPS.indexOf(
+        current as (typeof RADIUS_STEPS)[number]
+      );
+      return RADIUS_STEPS[(index + 1) % RADIUS_STEPS.length];
+    });
+  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchData(filters);
+    fetchData();
   };
 
-  const handleSearch = (text: string) => {
-    setSearchQuery(text);
+  const applyFilters = (next: FilterSelection) => {
+    setSelected(null);
+    setSelection(next);
   };
 
-  const toggleGPS = async () => {
-    if (!useGPS) {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission refusée', 'L\'accès à la localisation est nécessaire pour cette fonctionnalité.');
-        return;
-      }
-      const currentLocation = await Location.getCurrentPositionAsync({});
-      setLocation(currentLocation);
-      setUseGPS(true);
-    } else {
-      setUseGPS(false);
-      setLocation(null);
-    }
+  const selectCategory = (categoryId: string | null) => {
+    setSelected(null);
+    setSelectedCategoryId(categoryId);
   };
 
-  const applyFilters = (newFilters: any) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
-  };
+  /* ------------------------------------------------------------------ */
+  /*  Rendu                                                              */
+  /* ------------------------------------------------------------------ */
 
-  const toggleLanguage = () => {
-    setLanguage(prev => (prev === 'fr' ? 'en' : 'fr'));
-  };
+  const floatingButton = (
+    icon: React.ComponentProps<typeof Ionicons>['name'],
+    onPress: () => void,
+    active = false,
+    /** Pastille d'alerte : signale que le bouton demande une intervention. */
+    warn = false
+  ) => (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.85}
+      style={{
+        backgroundColor: active ? colors.cta : colors.surface,
+        borderColor: active ? colors.cta : colors.border,
+        ...FloatShadow,
+      }}
+      className="h-12 w-12 items-center justify-center rounded-full border"
+    >
+      <Ionicons
+        name={icon}
+        size={20}
+        color={active ? colors.ctaText : warn ? colors.warning : colors.text}
+      />
+      {warn && (
+        <View
+          style={{
+            backgroundColor: colors.warning,
+            borderColor: colors.surface,
+          }}
+          className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2"
+        />
+      )}
+    </TouchableOpacity>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      {/* Sticky Header Section */}
-      <View style={{ backgroundColor: colors.bg, paddingTop: 64, paddingBottom: 16, zIndex: 20 }}>
-        <View style={{ paddingHorizontal: 24 }}>
-          <View className="flex-row items-center justify-between mb-8">
-             <View>
-               <Text style={{ color: colors.textMuted }} className="text-sm font-body">
-                 {language === 'fr' ? 'Bienvenue 👋' : 'Welcome 👋'}
-               </Text>
-               <Text style={{ color: colors.text }} className="text-2xl font-body-bold mt-1">
-                 {user?.fullName ?? (language === 'fr' ? 'Utilisateur' : 'User')}
-               </Text>
-             </View>
-             
-             <View className="flex-row gap-3">
-                <TouchableOpacity
-                  onPress={toggleLanguage}
-                  style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-                  className="w-12 h-12 rounded-2xl items-center justify-center border"
-                >
-                  <Text style={{ color: colors.text }} className="font-body-bold text-xs">{language.toUpperCase()}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => setMode(mode === 'dark' ? 'light' : 'dark')}
-                  style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-                  className="w-12 h-12 rounded-2xl items-center justify-center border"
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name={mode === 'dark' ? 'sunny-outline' : 'moon-outline'} size={22} color={colors.text} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-                  className="w-12 h-12 rounded-2xl items-center justify-center border"
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="notifications-outline" size={22} color={colors.text} />
-                  <View style={{ backgroundColor: colors.teal, borderColor: colors.surface }} className="absolute top-3 right-3 w-2 h-2 rounded-full border-2" />
-                </TouchableOpacity>
-             </View>
+      {/* Couche de fond : carte en plein écran ou liste défilante */}
+      {viewMode === 'map' ? (
+        <ExploreMap
+          ref={map}
+          annonces={mappable}
+          selectedId={selected?.id ?? null}
+          onSelect={handleSelect}
+          userCoords={coords}
+          in3D={in3D}
+        />
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 24,
+            paddingTop: headerHeight + 16,
+            paddingBottom: tabBarHeight + 90,
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.teal}
+              progressViewOffset={headerHeight}
+            />
+          }
+        >
+          <View className="mb-6 flex-row items-center justify-between">
+            <Text
+              style={{ color: colors.text, letterSpacing: -0.5 }}
+              className="font-body-bold text-2xl"
+            >
+              {t.topRated}
+            </Text>
+            <Text style={{ color: colors.teal }} className="font-body-medium">
+              {visibleAnnonces.length} {t.places}
+            </Text>
           </View>
 
-          {/* Search Bar + Controls */}
-          <View className="flex-row items-center mb-6 gap-2">
-            <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="flex-1 flex-row items-center px-4 py-3 rounded-2xl border">
-              <Ionicons name="search-outline" size={20} color={colors.icon} />
-              <TextInput 
-                style={{ color: colors.text }}
-                className="flex-1 font-body ml-3 h-10"
-                placeholder={language === 'fr' ? 'Dites moi ce que vous cherchez' : 'Tell me what you are looking for'}
-                placeholderTextColor={colors.icon}
-                value={searchQuery}
-                onChangeText={handleSearch}
+          {loading && !refreshing ? (
+            <ActivityIndicator
+              size="large"
+              color={colors.teal}
+              className="mt-20"
+            />
+          ) : visibleAnnonces.length > 0 ? (
+            visibleAnnonces.map(annonce => (
+              <PropertyCard
+                key={annonce.id}
+                annonce={annonce}
+                language={language}
+                distance={
+                  coords &&
+                  annonce.latitude !== undefined &&
+                  annonce.longitude !== undefined
+                    ? distanceKm(coords, {
+                        latitude: annonce.latitude,
+                        longitude: annonce.longitude,
+                      })
+                    : undefined
+                }
               />
-            </View>
-            
-            <TouchableOpacity 
-              onPress={toggleGPS}
+            ))
+          ) : (
+            <View
               style={{
-                backgroundColor: useGPS ? colors.tealSoft : colors.surface,
-                borderColor: useGPS ? colors.teal : colors.border,
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
               }}
-              className="w-14 h-14 rounded-2xl items-center justify-center border"
+              className="items-center justify-center rounded-3xl border py-20"
             >
-              <Ionicons name="location-outline" size={22} color={useGPS ? colors.teal : colors.icon} />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              onPress={() => setShowFilters(true)}
-              style={{ backgroundColor: colors.teal }}
-              className="w-14 h-14 rounded-2xl items-center justify-center"
-            >
-              <Ionicons name="options-outline" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Categories (Still Sticky) */}
-        <View className="mb-2">
-           <ScrollView 
-             horizontal 
-             showsHorizontalScrollIndicator={false}
-             contentContainerStyle={{ paddingHorizontal: 24 }}
-           >
-              <TouchableOpacity
-                onPress={() => setSelectedCategoryId(null)}
-                style={{
-                  backgroundColor: selectedCategoryId === null ? colors.teal : colors.surface,
-                  borderColor: selectedCategoryId === null ? colors.teal : colors.border,
-                }}
-                className="mr-3 px-5 py-3 rounded-2xl flex-row items-center border"
+              <View
+                style={{ backgroundColor: Tiles.sky }}
+                className="mb-6 h-20 w-20 items-center justify-center rounded-full"
               >
-                <Ionicons name="apps-outline" size={16} color={selectedCategoryId === null ? 'white' : colors.textMuted} />
-                <Text style={{ color: selectedCategoryId === null ? 'white' : colors.textMuted }} className="ml-2 font-body-bold text-xs">
-                  {language === 'fr' ? 'Tous' : 'All'}
+                <Ionicons name="search-outline" size={36} color={colors.ink} />
+              </View>
+              <Text
+                style={{ color: colors.text }}
+                className="font-body-bold text-lg"
+              >
+                {t.empty}
+              </Text>
+              <Text
+                style={{ color: colors.textMuted }}
+                className="mt-2 px-10 text-center font-body"
+              >
+                {t.emptyHint}
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      )}
+
+      {/* Barre de recherche et catégories, en surimpression sur la carte */}
+      <SafeAreaView
+        edges={['top']}
+        pointerEvents="box-none"
+        className="absolute inset-x-0 top-0"
+        onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}
+      >
+        <View className="px-6 pt-2" pointerEvents="box-none">
+          {/* Barre d'app : la salutation, puis langue et notifications réunies
+              dans une seule capsule pour ne pas éparpiller les commandes. */}
+          <View className="mb-3 flex-row items-center justify-between">
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                ...FloatShadow,
+              }}
+              className="mr-3 max-w-[62%] shrink flex-row items-center rounded-full border py-2 pl-3 pr-4"
+            >
+              <Text
+                style={{ color: colors.textMuted }}
+                className="font-body text-xs"
+              >
+                {t.hello}{' '}
+              </Text>
+              <Text
+                style={{ color: colors.text }}
+                className="shrink font-body-bold text-xs"
+                numberOfLines={1}
+              >
+                {firstName ?? t.guest}
+              </Text>
+              <Text className="ml-1 text-xs">👋</Text>
+            </View>
+
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                ...FloatShadow,
+              }}
+              className="flex-row items-center rounded-full border"
+            >
+              <TouchableOpacity
+                onPress={() => setLanguage(language === 'fr' ? 'en' : 'fr')}
+                className="h-10 w-11 items-center justify-center"
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  language === 'fr' ? 'Passer en anglais' : 'Switch to French'
+                }
+              >
+                <Text
+                  style={{ color: colors.text }}
+                  className="font-body-bold text-[11px] tracking-wider"
+                >
+                  {language.toUpperCase()}
                 </Text>
               </TouchableOpacity>
 
-             {categories.map((category) => {
-               if (!category) return null;
-               const isActive = selectedCategoryId === category.id;
-               const iconName = CATEGORY_ICONS[category.slug] || 'business-outline';
-               return (
-                 <TouchableOpacity
-                   key={category.id}
-                   onPress={() => setSelectedCategoryId(category.id)}
-                   style={{
-                     backgroundColor: isActive ? colors.teal : colors.surface,
-                     borderColor: isActive ? colors.teal : colors.border,
-                   }}
-                   className="mr-3 px-5 py-3 rounded-2xl flex-row items-center border"
-                 >
-                   <Ionicons 
-                     name={iconName} 
-                     size={16} 
-                     color={isActive ? 'white' : colors.textMuted} 
-                   />
-                   <Text 
-                     style={{ color: isActive ? 'white' : colors.textMuted }}
-                     className="ml-2 font-body-bold text-xs"
-                   >
-                     {category.name}
-                   </Text>
-                 </TouchableOpacity>
-               );
-             })}
-           </ScrollView>
-        </View>
-      </View>
+              <View
+                style={{ backgroundColor: colors.border }}
+                className="h-5 w-[1px]"
+              />
 
-      {/* Scrollable Content Section */}
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.teal} />
-        }
-      >
-        <View style={{ paddingHorizontal: 24, marginTop: 16 }}>
-          <View className="flex-row items-center justify-between mb-6">
-            <Text style={{ color: colors.text }} className="text-xl font-body-bold">
-              {language === 'fr' ? 'Résultats pour vous' : 'Results for you'}
-            </Text>
-            <Text style={{ color: colors.teal }} className="font-body-medium">{(annonces || []).length} {language === 'fr' ? 'biens' : 'properties'}</Text>
+              <TouchableOpacity
+                className="h-10 w-11 items-center justify-center"
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Notifications"
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={19}
+                  color={colors.text}
+                />
+                <View
+                  style={{
+                    backgroundColor: colors.teal,
+                    borderColor: colors.surface,
+                  }}
+                  className="absolute right-2.5 top-2 h-2 w-2 rounded-full border-2"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
-          
-          {loading && !refreshing ? (
-            <ActivityIndicator size="large" color={colors.teal} className="mt-20" />
-          ) : (
-            <>
-              {annonces.map((annonce) => (
-                <PropertyCard key={annonce.id} annonce={annonce} language={language} />
-              ))}
-              
-              {annonces.length === 0 && (
-                <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="items-center justify-center py-20 rounded-[40px] border">
-                  <View style={{ backgroundColor: colors.bg }} className="w-20 h-20 rounded-full items-center justify-center mb-6">
-                    <Ionicons name="search-outline" size={40} color={colors.icon} />
-                  </View>
-                  <Text style={{ color: colors.text }} className="text-lg font-body-bold">{language === 'fr' ? 'Aucun résultat' : 'No results'}</Text>
-                  <Text style={{ color: colors.textMuted }} className="font-body mt-2 text-center px-10">
-                    {language === 'fr' ? 'Essayez de modifier vos filtres ou votre recherche.' : 'Try changing your filters or search query.'}
+
+          <View className="flex-row items-center gap-3">
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                ...FloatShadow,
+              }}
+              className="h-14 flex-1 flex-row items-center rounded-full border px-5"
+            >
+              <Ionicons name="search-outline" size={20} color={colors.icon} />
+              <TextInput
+                style={{ color: colors.text }}
+                className="ml-3 h-14 flex-1 font-body"
+                placeholder={t.searchPlaceholder}
+                placeholderTextColor={colors.icon}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setSearchQuery('')}
+                  hitSlop={8}
+                >
+                  <Ionicons name="close-circle" size={18} color={colors.icon} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setShowFilters(true)}
+              style={{
+                backgroundColor: colors.cta,
+                ...FloatShadow,
+              }}
+              className="h-14 w-14 items-center justify-center rounded-full"
+              activeOpacity={0.85}
+            >
+              <Ionicons
+                name="options-outline"
+                size={22}
+                color={colors.ctaText}
+              />
+              {/* Compteur : savoir que des filtres sont actifs sans ouvrir le
+                  panneau — sinon une liste filtrée passe pour une liste vide. */}
+              {activeFilterCount > 0 && (
+                <View
+                  style={{
+                    backgroundColor: colors.teal,
+                    borderColor: colors.cta,
+                  }}
+                  className="absolute -right-1 -top-1 h-5 w-5 items-center justify-center rounded-full border-2"
+                >
+                  <Text
+                    style={{ color: colors.textInverse }}
+                    className="font-body-bold text-[10px]"
+                  >
+                    {activeFilterCount}
                   </Text>
                 </View>
               )}
-            </>
-          )}
+            </TouchableOpacity>
+          </View>
         </View>
-      </ScrollView>
 
-      <FiltersModal 
-        visible={showFilters} 
-        onClose={() => setShowFilters(false)} 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 14 }}
+        >
+          {[{ id: null, name: t.all, slug: '' }, ...categories].map(
+            category => {
+              const isActive = selectedCategoryId === category.id;
+              return (
+                <TouchableOpacity
+                  key={category.id ?? 'all'}
+                  onPress={() => selectCategory(category.id)}
+                  style={{
+                    backgroundColor: isActive ? colors.cta : colors.surface,
+                    borderColor: isActive ? colors.cta : colors.border,
+                    ...FloatShadow,
+                  }}
+                  className="mr-2 flex-row items-center rounded-full border px-4 py-2.5"
+                  activeOpacity={0.85}
+                >
+                  <Ionicons
+                    name={
+                      category.id === null
+                        ? 'apps-outline'
+                        : getCategoryIcon(category.slug)
+                    }
+                    size={15}
+                    color={isActive ? colors.ctaText : colors.text}
+                  />
+                  <Text
+                    style={{ color: isActive ? colors.ctaText : colors.text }}
+                    className="ml-2 font-body-semibold text-[13px]"
+                  >
+                    {category.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }
+          )}
+        </ScrollView>
+      </SafeAreaView>
+
+      {/* Explication d'une carte vide */}
+      {viewMode === 'map' && emptyMapReason && (
+        <View
+          className="absolute inset-x-0 items-center px-6"
+          style={{ top: headerHeight + 8 }}
+          pointerEvents="box-none"
+        >
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              ...FloatShadow,
+            }}
+            className="max-w-full flex-row items-center rounded-2xl border px-4 py-3"
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={18}
+              color={colors.textMuted}
+            />
+            <Text
+              style={{ color: colors.textSecondary }}
+              className="ml-2 shrink font-body text-xs"
+            >
+              {emptyMapReason}
+            </Text>
+            {nearbyOnly &&
+            radiusKm !== RADIUS_STEPS[RADIUS_STEPS.length - 1] ? (
+              <TouchableOpacity
+                onPress={cycleRadius}
+                className="ml-3"
+                hitSlop={8}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={{ color: colors.teal }}
+                  className="font-body-bold text-xs"
+                >
+                  {t.widenRadius}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              visibleAnnonces.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setViewMode('list')}
+                  className="ml-3"
+                  hitSlop={8}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={{ color: colors.teal }}
+                    className="font-body-bold text-xs"
+                  >
+                    {t.seeList}
+                  </Text>
+                </TouchableOpacity>
+              )
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Commandes de carte */}
+      {viewMode === 'map' && (
+        <View
+          className="absolute right-6 items-end gap-3"
+          style={{ bottom: tabBarHeight + 88 }}
+          pointerEvents="box-none"
+        >
+          {floatingButton(
+            in3D ? 'cube' : 'cube-outline',
+            () => setIn3D(value => !value),
+            in3D
+          )}
+          <View className="flex-row items-center justify-end">
+            {/* Le rayon ne s'affiche que si le filtre est allumé : il n'a aucun
+                sens quand toute la ville est visible. */}
+            {nearbyOnly && (
+              <TouchableOpacity
+                onPress={cycleRadius}
+                activeOpacity={0.85}
+                style={{
+                  backgroundColor: colors.cta,
+                  ...FloatShadow,
+                }}
+                className="mr-2 flex-row items-center rounded-full px-3.5 py-2"
+                accessibilityRole="button"
+                accessibilityLabel={`${t.nearbyOn} — ${radiusKm} km`}
+              >
+                <Text
+                  style={{ color: colors.ctaText }}
+                  className="font-body-bold text-xs"
+                >
+                  {visibleAnnonces.length} {t.places}
+                </Text>
+                <View
+                  style={{ backgroundColor: colors.ctaText, opacity: 0.4 }}
+                  className="mx-2 h-3 w-[1px]"
+                />
+                <Text
+                  style={{ color: colors.ctaText }}
+                  className="font-body-bold text-xs"
+                >
+                  {radiusKm} km
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {floatingButton(
+              permission === 'denied' ? 'location-outline' : 'locate',
+              toggleNearby,
+              nearbyOnly,
+              permission === 'denied'
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Bascule carte / liste */}
+      <View
+        className="absolute inset-x-0 items-center"
+        style={{ bottom: tabBarHeight + 20 }}
+        pointerEvents="box-none"
+      >
+        <View
+          style={{
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            ...FloatShadow,
+          }}
+          className="flex-row items-center rounded-full border p-1.5"
+        >
+          {(['map', 'list'] as ViewMode[]).map(current => {
+            const isActive = viewMode === current;
+            return (
+              <TouchableOpacity
+                key={current}
+                onPress={() => {
+                  setViewMode(current);
+                  setSelected(null);
+                }}
+                style={{
+                  backgroundColor: isActive ? colors.cta : 'transparent',
+                }}
+                className="flex-row items-center rounded-full px-5 py-2.5"
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name={current === 'map' ? 'map-outline' : 'list-outline'}
+                  size={17}
+                  color={isActive ? colors.ctaText : colors.textMuted}
+                />
+                <Text
+                  style={{
+                    color: isActive ? colors.ctaText : colors.textMuted,
+                  }}
+                  className="ml-2 font-body-bold text-xs"
+                >
+                  {current === 'map' ? t.map : t.list}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      <AnnonceSheet
+        annonce={viewMode === 'map' ? selected : null}
+        onClose={() => setSelected(null)}
+        distance={selectedDistance}
+        bottomInset={tabBarHeight}
+        language={language}
+      />
+
+      <FiltersModal
+        visible={showFilters}
+        onClose={() => setShowFilters(false)}
         onApply={applyFilters}
-        initialFilters={filters}
+        selection={selection}
       />
     </View>
   );

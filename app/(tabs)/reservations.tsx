@@ -1,74 +1,113 @@
+import Button from '@/components/ui/Button';
+import { Tiles } from '@/constants/theme';
 import React, { useState, useCallback, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  FlatList, 
-  TouchableOpacity, 
-  Image, 
-  ActivityIndicator, 
-  RefreshControl, 
-  Modal, 
-  ScrollView, 
-  Linking, 
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  RefreshControl,
+  Modal,
+  ScrollView,
+  Linking,
   Alert,
   Dimensions,
-  StyleSheet
+  StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getMyReservations, Reservation } from '@/services/reservationService';
+import {
+  BookingStatus,
+  getMyReservations,
+  Reservation,
+} from '@/services/reservationService';
 import { getAnnonceById, Annonce } from '@/services/annonceService';
 
 const { height } = Dimensions.get('window');
 
-type FilterStatus = 'all' | 'confirmee' | 'en_attente_paiement' | 'annulee';
+// /bookings/me ne renvoie pas d'image pour le listing
+const PLACEHOLDER_IMAGE =
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800';
+
+type FilterStatus = 'all' | BookingStatus;
 
 export default function ReservationsScreen() {
   const { user, accessToken } = useAuth();
   const { colors } = useTheme();
-  
-  const STATUS_MAP: Record<string, { label: string, color: string, bgColor: string, icon: string }> = {
-    'en_attente_paiement': { label: 'En attente', color: colors.warning, bgColor: 'rgba(255, 159, 10, 0.1)', icon: 'time-outline' },
-    'confirmee': { label: 'Confirmée', color: colors.success, bgColor: colors.tealSoft, icon: 'checkmark-circle-outline' },
-    'annulee': { label: 'Annulée', color: colors.error, bgColor: colors.errorSoft, icon: 'close-circle-outline' },
-    'cancelled': { label: 'Annulée', color: colors.error, bgColor: colors.errorSoft, icon: 'close-circle-outline' },
+
+  const STATUS_MAP: Record<
+    string,
+    { label: string; color: string; bgColor: string; icon: string }
+  > = {
+    // Pastilles en aplats, comme sur la landing (texte encre dans les deux modes)
+    PENDING: {
+      label: 'En attente',
+      color: colors.ink,
+      bgColor: Tiles.yellow,
+      icon: 'time-outline',
+    },
+    CONFIRMED: {
+      label: 'Confirmée',
+      color: colors.ink,
+      bgColor: Tiles.mint,
+      icon: 'checkmark-circle-outline',
+    },
+    CANCELLED: {
+      label: 'Annulée',
+      color: colors.ink,
+      bgColor: Tiles.coral,
+      icon: 'close-circle-outline',
+    },
+    COMPLETED: {
+      label: 'Terminée',
+      color: colors.textSecondary,
+      bgColor: colors.muted,
+      icon: 'flag-outline',
+    },
   };
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
+  const [filteredReservations, setFilteredReservations] = useState<
+    Reservation[]
+  >([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('all');
-  
+
   // Selected reservation for the detailed drawer modal
   const [selectedRes, setSelectedRes] = useState<Reservation | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedAnnonce, setSelectedAnnonce] = useState<Annonce | null>(null);
   const [loadingAnnonce, setLoadingAnnonce] = useState(false);
 
-  const fetchReservations = useCallback(async (isRefresh = false) => {
-    if (!accessToken) return;
-    
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+  const fetchReservations = useCallback(
+    async (isRefresh = false) => {
+      if (!accessToken) return;
 
-    try {
-      const data = await getMyReservations(accessToken);
-      setReservations(data);
-    } catch (error) {
-      console.error('Fetch reservations error:', error);
-      Alert.alert('Erreur', 'Impossible de charger vos réservations.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [accessToken]);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      try {
+        const data = await getMyReservations(accessToken);
+        setReservations(data);
+      } catch (error) {
+        console.error('Fetch reservations error:', error);
+        Alert.alert('Erreur', 'Impossible de charger vos réservations.');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [accessToken]
+  );
 
   // Load reservations when the screen is focused
   useFocusEffect(
@@ -112,31 +151,42 @@ export default function ReservationsScreen() {
     setSelectedAnnonce(null);
   };
 
-  const formatDisplayDate = (dateStr: string) => {
+  const formatDisplayDate = (dateStr: string | null) => {
     if (!dateStr) return '';
     try {
       const d = new Date(dateStr);
-      return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+      return d.toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
     } catch {
       return dateStr;
     }
   };
 
-  const formatShortDateRange = (startStr: string, endStr: string) => {
-    if (!startStr || !endStr) return '';
+  const formatShortDateRange = (startStr: string, endStr: string | null) => {
+    if (!endStr) return formatDisplayDate(startStr);
     try {
       const s = new Date(startStr);
       const e = new Date(endStr);
-      const optionsDayMonth: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
+      const optionsDayMonth: Intl.DateTimeFormatOptions = {
+        day: 'numeric',
+        month: 'short',
+      };
       const startF = s.toLocaleDateString('fr-FR', optionsDayMonth);
-      const endF = e.toLocaleDateString('fr-FR', { ...optionsDayMonth, year: 'numeric' });
+      const endF = e.toLocaleDateString('fr-FR', {
+        ...optionsDayMonth,
+        year: 'numeric',
+      });
       return `${startF} au ${endF}`;
     } catch {
       return `${startStr} - ${endStr}`;
     }
   };
 
-  const calculateNights = (startStr: string, endStr: string) => {
+  const calculateNights = (startStr: string, endStr: string | null) => {
+    if (!endStr) return 1;
     try {
       const start = new Date(startStr);
       const end = new Date(endStr);
@@ -148,58 +198,35 @@ export default function ReservationsScreen() {
     }
   };
 
-  const handlePayNow = (res: Reservation) => {
-    setModalVisible(false);
-    router.push({
-      pathname: '/annonces/payment',
-      params: {
-        annonce_id: res.annonceId,
-        start_date: res.startDate.split('T')[0],
-        end_date: res.endDate.split('T')[0],
-        guests_count: res.guestsCount,
-        total: res.totalAmount,
-        currency: res.annonce?.currency || 'USD',
-        title: res.annonce?.title || 'Hébergement'
-      }
-    } as any);
-  };
-
-  const handleCall = () => {
-    if (selectedAnnonce?.annonceur?.phone) {
-      Linking.openURL(`tel:${selectedAnnonce.annonceur.phone}`);
-    } else {
-      Alert.alert('Indisponible', "Le numéro de l'annonceur n'est pas renseigné.");
-    }
-  };
-
-  const handleWhatsApp = () => {
-    if (selectedAnnonce?.annonceur?.phone) {
-      const message = `Bonjour, je vous contacte concernant ma réservation pour "${selectedAnnonce.title}" sur Nyumba.`;
-      Linking.openURL(`whatsapp://send?phone=${selectedAnnonce.annonceur.phone}&text=${encodeURIComponent(message)}`);
-    } else {
-      Alert.alert('Indisponible', "Le numéro de l'annonceur n'est pas renseigné.");
-    }
-  };
-
   // Auth Gate check
   if (!user || !accessToken) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-        <View className="flex-1 px-6 justify-center items-center">
-          <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="w-24 h-24 rounded-full items-center justify-center mb-8 border">
-            <Ionicons name="lock-closed-outline" size={48} color={colors.teal} />
-          </View>
-          <Text style={{ color: colors.text }} className="text-2xl font-body-bold text-center mb-2">Connexion requise</Text>
-          <Text style={{ color: colors.textMuted }} className="font-body text-center mb-8 px-6">
-            Connectez-vous à votre compte Nyumba pour voir et gérer vos réservations.
-          </Text>
-          <TouchableOpacity 
-            onPress={() => router.replace('/(auth)/login' as any)}
-            style={{ backgroundColor: colors.teal }}
-            className="px-8 h-14 rounded-2xl items-center justify-center w-full"
+        <View className="flex-1 items-center justify-center px-6">
+          <View
+            style={{ backgroundColor: Tiles.lilac }}
+            className="mb-8 h-24 w-24 items-center justify-center rounded-full"
           >
-            <Text className="text-white font-body-bold text-lg">Se connecter</Text>
-          </TouchableOpacity>
+            <Ionicons name="lock-closed-outline" size={40} color={colors.ink} />
+          </View>
+          <Text
+            style={{ color: colors.text }}
+            className="mb-2 text-center font-body-bold text-2xl"
+          >
+            Connexion requise
+          </Text>
+          <Text
+            style={{ color: colors.textMuted }}
+            className="mb-8 px-6 text-center font-body"
+          >
+            Connectez-vous à votre compte Nyumba pour voir et gérer vos
+            réservations.
+          </Text>
+          <Button
+            title="Se connecter"
+            className="w-full"
+            onPress={() => router.replace('/(auth)/login' as any)}
+          />
         </View>
       </SafeAreaView>
     );
@@ -208,15 +235,18 @@ export default function ReservationsScreen() {
   const renderFilterButton = (filter: FilterStatus, label: string) => {
     const isActive = activeFilter === filter;
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         onPress={() => setActiveFilter(filter)}
         style={{
-          backgroundColor: isActive ? colors.tealSoft : colors.surface,
-          borderColor: isActive ? colors.teal : colors.border,
+          backgroundColor: isActive ? colors.cta : colors.surface,
+          borderColor: isActive ? colors.cta : colors.border,
         }}
-        className="px-6 py-3 rounded-full mr-2 border"
+        className="mr-2 rounded-full border px-5 py-2.5"
       >
-        <Text style={{ color: isActive ? colors.teal : colors.textMuted }} className={`font-body-medium text-sm ${isActive ? 'font-body-bold' : ''}`}>
+        <Text
+          style={{ color: isActive ? colors.ctaText : colors.text }}
+          className="font-body-semibold text-sm"
+        >
           {label}
         </Text>
       </TouchableOpacity>
@@ -224,11 +254,24 @@ export default function ReservationsScreen() {
   };
 
   const getStatusBadge = (status: string) => {
-    const mapped = STATUS_MAP[status] || { label: status, color: colors.textMuted, bgColor: colors.border, icon: 'help-circle-outline' };
+    const mapped = STATUS_MAP[status] || {
+      label: status,
+      color: colors.textMuted,
+      bgColor: colors.border,
+      icon: 'help-circle-outline',
+    };
     return (
-      <View style={{ backgroundColor: mapped.bgColor }} className="flex-row items-center px-3 py-1 rounded-full">
+      <View
+        style={{ backgroundColor: mapped.bgColor }}
+        className="flex-row items-center rounded-full px-3 py-1"
+      >
         <Ionicons name={mapped.icon as any} size={14} color={mapped.color} />
-        <Text style={{ color: mapped.color }} className="text-xs font-body-bold ml-1.5">{mapped.label}</Text>
+        <Text
+          style={{ color: mapped.color }}
+          className="ml-1.5 font-body-semibold text-xs"
+        >
+          {mapped.label}
+        </Text>
       </View>
     );
   };
@@ -236,8 +279,13 @@ export default function ReservationsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* Header */}
-      <View className="px-6 pt-8 pb-4">
-        <Text style={{ color: colors.text }} className="text-3xl font-body-bold mb-2">Mes Réservations</Text>
+      <View className="px-6 pb-4 pt-8">
+        <Text
+          style={{ color: colors.text, letterSpacing: -0.8 }}
+          className="mb-2 font-body-bold text-3xl"
+        >
+          Mes réservations
+        </Text>
         <Text style={{ color: colors.textMuted }} className="font-body text-sm">
           Retrouvez ici toutes vos réservations passées et à venir.
         </Text>
@@ -245,15 +293,16 @@ export default function ReservationsScreen() {
 
       {/* Status Filter Row */}
       <View className="mb-6">
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 24 }}
         >
           {renderFilterButton('all', 'Toutes')}
-          {renderFilterButton('confirmee', 'Confirmées')}
-          {renderFilterButton('en_attente_paiement', 'En attente')}
-          {renderFilterButton('annulee', 'Annulées')}
+          {renderFilterButton('CONFIRMED', 'Confirmées')}
+          {renderFilterButton('PENDING', 'En attente')}
+          {renderFilterButton('CANCELLED', 'Annulées')}
+          {renderFilterButton('COMPLETED', 'Terminées')}
         </ScrollView>
       </View>
 
@@ -265,71 +314,96 @@ export default function ReservationsScreen() {
       ) : (
         <FlatList
           data={filteredReservations}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={item => item.id.toString()}
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
           refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={() => fetchReservations(true)} 
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchReservations(true)}
               colors={[colors.teal]}
               tintColor={colors.teal}
             />
           }
           ListEmptyComponent={
             <View className="mt-20 items-center justify-center">
-              <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="w-24 h-24 rounded-full items-center justify-center mb-6 border">
-                <Ionicons name="calendar-outline" size={48} color={colors.icon} />
-              </View>
-              <Text style={{ color: colors.text }} className="text-xl font-body-bold mb-2">Aucune réservation</Text>
-              <Text style={{ color: colors.textMuted }} className="font-body text-center px-8 mb-8">
-                {activeFilter === 'all' 
-                  ? 'Vos réservations passées et à venir apparaîtront ici une fois confirmées.'
-                  : `Aucune réservation correspondant au statut sélectionné.`
-                }
-              </Text>
-              <TouchableOpacity 
-                onPress={() => router.replace('/(tabs)/' as any)}
-                style={{ backgroundColor: colors.border, borderColor: colors.border }}
-                className="px-6 py-3.5 rounded-2xl border"
+              <View
+                style={{ backgroundColor: Tiles.sky }}
+                className="mb-6 h-24 w-24 items-center justify-center rounded-full"
               >
-                <Text style={{ color: colors.text }} className="font-body-bold">Explorer les hébergements</Text>
-              </TouchableOpacity>
+                <Ionicons
+                  name="calendar-outline"
+                  size={40}
+                  color={colors.ink}
+                />
+              </View>
+              <Text
+                style={{ color: colors.text }}
+                className="mb-2 font-body-bold text-xl"
+              >
+                Aucune réservation
+              </Text>
+              <Text
+                style={{ color: colors.textMuted }}
+                className="mb-8 px-8 text-center font-body"
+              >
+                {activeFilter === 'all'
+                  ? 'Vos réservations passées et à venir apparaîtront ici une fois confirmées.'
+                  : `Aucune réservation correspondant au statut sélectionné.`}
+              </Text>
+              <Button
+                title="Explorer les bons coins"
+                variant="outline"
+                size="md"
+                onPress={() => router.replace('/(tabs)/' as any)}
+              />
             </View>
           }
           renderItem={({ item }) => {
             const nights = calculateNights(item.startDate, item.endDate);
-            const isPendingPayment = item.status === 'en_attente_paiement';
-            
+
             return (
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => handleOpenDetails(item)}
-                style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-                className="p-4 rounded-3xl mb-4 border flex-row"
+                style={{
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                }}
+                className="mb-4 flex-row rounded-3xl border p-4"
               >
                 {/* Cover Image */}
-                <Image 
-                  source={{ uri: item.annonce?.coverImageUrl || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800' }} 
-                  className="w-24 h-24 rounded-2xl"
+                <Image
+                  source={{ uri: PLACEHOLDER_IMAGE }}
+                  className="h-24 w-24 rounded-2xl"
                   style={{ backgroundColor: colors.skeleton }}
                 />
 
                 {/* Card details */}
                 <View className="ml-4 flex-1 justify-between py-1">
                   <View>
-                    <View className="flex-row items-center justify-between mb-1.5">
-                      <Text style={{ color: colors.textMuted }} className="text-[10px] font-body uppercase tracking-wider">PROPRIÉTÉ</Text>
+                    <View className="mb-1.5 flex-row items-center">
                       {getStatusBadge(item.status)}
                     </View>
-                    <Text style={{ color: colors.text }} className="font-body-bold text-base" numberOfLines={1}>
+                    <Text
+                      style={{ color: colors.text }}
+                      className="font-body-bold text-base"
+                      numberOfLines={1}
+                    >
                       {item.annonce?.title || 'Hébergement Nyumba'}
                     </Text>
-                    <Text style={{ color: colors.textMuted }} className="font-body text-xs mt-1">
-                      {formatShortDateRange(item.startDate, item.endDate)} · {nights} {nights > 1 ? 'nuits' : 'nuit'}
+                    <Text
+                      style={{ color: colors.textMuted }}
+                      className="mt-1 font-body text-xs"
+                    >
+                      {formatShortDateRange(item.startDate, item.endDate)} ·{' '}
+                      {nights} {nights > 1 ? 'nuits' : 'nuit'}
                     </Text>
                   </View>
-                  
-                  <View className="flex-row items-center justify-between mt-2">
-                    <Text style={{ color: colors.teal }} className="font-body-medium text-xs">
+
+                  <View className="mt-2 flex-row items-center justify-between">
+                    <Text
+                      style={{ color: colors.teal }}
+                      className="font-body-medium text-xs"
+                    >
                       Réservation enregistrée
                     </Text>
                   </View>
@@ -348,132 +422,232 @@ export default function ReservationsScreen() {
         onRequestClose={handleCloseDetails}
       >
         <View style={styles.modalOverlay}>
-          <TouchableOpacity 
-            style={{ flex: 1 }} 
-            activeOpacity={1} 
-            onPress={handleCloseDetails} 
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={1}
+            onPress={handleCloseDetails}
           />
-          <View style={[styles.modalContent, { backgroundColor: colors.bg, borderTopColor: colors.border }]} className="border-t rounded-t-[40px]">
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.bg, borderTopColor: colors.border },
+            ]}
+            className="rounded-t-3xl border-t"
+          >
             {/* Grab handle */}
-            <View style={{ backgroundColor: colors.border }} className="w-12 h-1 rounded-full my-4 mx-auto" />
+            <View
+              style={{ backgroundColor: colors.border }}
+              className="mx-auto my-4 h-1 w-12 rounded-full"
+            />
 
             {selectedRes && (
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingHorizontal: 24,
+                  paddingBottom: 40,
+                }}
+              >
                 {/* Title Section */}
-                <View className="flex-row items-center justify-between mb-6">
-                  <Text style={{ color: colors.text }} className="text-2xl font-body-bold">Détails de réservation</Text>
+                <View className="mb-6 flex-row items-center justify-between">
+                  <Text
+                    style={{ color: colors.text }}
+                    className="font-body-bold text-2xl"
+                  >
+                    Détails de réservation
+                  </Text>
                   {getStatusBadge(selectedRes.status)}
                 </View>
 
                 {/* Mini card */}
-                <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="flex-row p-4 rounded-3xl border mb-6">
-                  <Image 
-                    source={{ uri: selectedRes.annonce?.coverImageUrl || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800' }} 
-                    className="w-20 h-20 rounded-2xl"
+                <View
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  }}
+                  className="mb-6 flex-row rounded-3xl border p-4"
+                >
+                  <Image
+                    source={{
+                      uri: selectedAnnonce?.images[0]?.url || PLACEHOLDER_IMAGE,
+                    }}
+                    className="h-20 w-20 rounded-2xl"
                     style={{ backgroundColor: colors.skeleton }}
                   />
-                  <View className="ml-4 justify-center flex-1">
-                    <Text style={{ color: colors.text }} className="font-body-bold text-lg" numberOfLines={1}>
+                  <View className="ml-4 flex-1 justify-center">
+                    <Text
+                      style={{ color: colors.text }}
+                      className="font-body-bold text-lg"
+                      numberOfLines={1}
+                    >
                       {selectedRes.annonce?.title || 'Hébergement Nyumba'}
                     </Text>
-                    <Text style={{ color: colors.textMuted }} className="font-body text-sm mt-1">
-                      {selectedRes.annonce?.address || 'Kinshasa'}
+                    <Text
+                      style={{ color: colors.textMuted }}
+                      className="mt-1 font-body text-sm"
+                    >
+                      {selectedAnnonce?.address || 'Kinshasa'}
                     </Text>
                   </View>
                 </View>
 
                 {/* Recap of dates & guests */}
-                <Text style={{ color: colors.text }} className="text-base font-body-bold mb-4">Informations</Text>
-                <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="p-5 rounded-3xl border mb-6 gap-4">
-                  <View className="flex-row justify-between items-center">
+                <Text
+                  style={{ color: colors.text }}
+                  className="mb-4 font-body-bold text-base"
+                >
+                  Informations
+                </Text>
+                <View
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  }}
+                  className="mb-6 gap-4 rounded-3xl border p-5"
+                >
+                  <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center">
-                      <Ionicons name="calendar-outline" size={18} color={colors.teal} />
-                      <Text style={{ color: colors.textMuted }} className="font-body ml-3">{"Date d'arrivée"}</Text>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={18}
+                        color={colors.teal}
+                      />
+                      <Text
+                        style={{ color: colors.textMuted }}
+                        className="ml-3 font-body"
+                      >
+                        {"Date d'arrivée"}
+                      </Text>
                     </View>
-                    <Text style={{ color: colors.text }} className="font-body-medium">{formatDisplayDate(selectedRes.startDate)}</Text>
-                  </View>
-                  <View className="flex-row justify-between items-center">
-                    <View className="flex-row items-center">
-                      <Ionicons name="calendar-outline" size={18} color={colors.teal} />
-                      <Text style={{ color: colors.textMuted }} className="font-body ml-3">Date de départ</Text>
-                    </View>
-                    <Text style={{ color: colors.text }} className="font-body-medium">{formatDisplayDate(selectedRes.endDate)}</Text>
-                  </View>
-                  <View className="flex-row justify-between items-center">
-                    <View className="flex-row items-center">
-                      <Ionicons name="people-outline" size={18} color={colors.teal} />
-                      <Text style={{ color: colors.textMuted }} className="font-body ml-3">Voyageurs</Text>
-                    </View>
-                    <Text style={{ color: colors.text }} className="font-body-medium">
-                      {selectedRes.guestsCount} {selectedRes.guestsCount > 1 ? 'personnes' : 'personne'}
+                    <Text
+                      style={{ color: colors.text }}
+                      className="font-body-medium"
+                    >
+                      {formatDisplayDate(selectedRes.startDate)}
                     </Text>
                   </View>
-                  <View className="flex-row justify-between items-center">
+                  <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center">
-                      <Ionicons name="bookmark-outline" size={18} color={colors.teal} />
-                      <Text style={{ color: colors.textMuted }} className="font-body ml-3">Type</Text>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={18}
+                        color={colors.teal}
+                      />
+                      <Text
+                        style={{ color: colors.textMuted }}
+                        className="ml-3 font-body"
+                      >
+                        Date de départ
+                      </Text>
                     </View>
-                    <Text style={{ color: colors.text }} className="font-body-medium capitalize">{selectedRes.typeReservation || 'standard'}</Text>
+                    <Text
+                      style={{ color: colors.text }}
+                      className="font-body-medium"
+                    >
+                      {formatDisplayDate(selectedRes.endDate)}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center">
+                      <Ionicons
+                        name="people-outline"
+                        size={18}
+                        color={colors.teal}
+                      />
+                      <Text
+                        style={{ color: colors.textMuted }}
+                        className="ml-3 font-body"
+                      >
+                        Voyageurs
+                      </Text>
+                    </View>
+                    <Text
+                      style={{ color: colors.text }}
+                      className="font-body-medium"
+                    >
+                      {selectedRes.guestsCount}{' '}
+                      {selectedRes.guestsCount > 1 ? 'personnes' : 'personne'}
+                    </Text>
                   </View>
                 </View>
 
-
                 {/* Host Section */}
-                <Text style={{ color: colors.text }} className="text-base font-body-bold mb-4">Hôte & Support</Text>
+                <Text
+                  style={{ color: colors.text }}
+                  className="mb-4 font-body-bold text-base"
+                >
+                  Hôte & Support
+                </Text>
                 {loadingAnnonce ? (
-                  <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="p-6 rounded-3xl border mb-6 items-center">
+                  <View
+                    style={{
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    }}
+                    className="mb-6 items-center rounded-3xl border p-6"
+                  >
                     <ActivityIndicator size="small" color={colors.teal} />
                   </View>
                 ) : selectedAnnonce ? (
-                  <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="p-5 rounded-3xl border mb-6">
-                    <View className="flex-row items-center mb-4">
-                      <Image 
-                        source={{ uri: selectedAnnonce.annonceur?.logoUrl || 'https://ui-avatars.com/api/?name=' + (selectedAnnonce.annonceur?.name || 'Owner') + '&background=00BFA5&color=fff' }} 
-                        className="w-12 h-12 rounded-xl"
+                  <View
+                    style={{
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    }}
+                    className="mb-6 rounded-3xl border p-5"
+                  >
+                    <View className="mb-4 flex-row items-center">
+                      <Image
+                        source={{
+                          uri:
+                            'https://ui-avatars.com/api/?name=' +
+                            encodeURIComponent(
+                              selectedAnnonce.owner?.fullName || 'Owner'
+                            ) +
+                            '&background=00806A&color=fff',
+                        }}
+                        className="h-12 w-12 rounded-full"
                         style={{ backgroundColor: colors.skeleton }}
                       />
                       <View className="ml-3 flex-1">
-                        <Text style={{ color: colors.text }} className="font-body-bold text-base">
-                          {selectedAnnonce.annonceur?.name || 'Propriétaire'}
+                        <Text
+                          style={{ color: colors.text }}
+                          className="font-body-bold text-base"
+                        >
+                          {selectedAnnonce.owner?.fullName || 'Propriétaire'}
                         </Text>
-                        <Text style={{ color: colors.textMuted }} className="font-body text-xs capitalize">
-                          {selectedAnnonce.annonceur?.type === 'agence' ? 'Agence Immobilière' : 'Hôte Particulier'}
+                        <Text
+                          style={{ color: colors.textMuted }}
+                          className="font-body text-xs capitalize"
+                        >
+                          Hôte
                         </Text>
                       </View>
                     </View>
-                    
-                    <View className="flex-row gap-3">
-                      <TouchableOpacity 
-                        onPress={handleCall}
-                        style={{ backgroundColor: colors.border, borderColor: colors.border }}
-                        className="flex-1 h-12 rounded-2xl flex-row items-center justify-center border"
-                      >
-                        <Ionicons name="call-outline" size={18} color={colors.text} />
-                        <Text style={{ color: colors.text }} className="font-body-bold ml-2 text-sm">Appeler</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        onPress={handleWhatsApp}
-                        style={{ backgroundColor: colors.whatsappSoft, borderColor: colors.whatsappBorder }}
-                        className="flex-1 h-12 rounded-2xl flex-row items-center justify-center border"
-                      >
-                        <Ionicons name="logo-whatsapp" size={18} color={colors.whatsapp} />
-                        <Text style={{ color: colors.whatsapp }} className="font-body-bold ml-2 text-sm">WhatsApp</Text>
-                      </TouchableOpacity>
-                    </View>
                   </View>
                 ) : (
-                  <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="p-5 rounded-3xl border mb-6 justify-center items-center">
-                    <Text style={{ color: colors.textMuted }} className="font-body text-xs">{"Infos de l'hôte indisponibles"}</Text>
+                  <View
+                    style={{
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    }}
+                    className="mb-6 items-center justify-center rounded-3xl border p-5"
+                  >
+                    <Text
+                      style={{ color: colors.textMuted }}
+                      className="font-body text-xs"
+                    >
+                      {"Infos de l'hôte indisponibles"}
+                    </Text>
                   </View>
                 )}
 
-                <TouchableOpacity 
+                <Button
+                  title="Fermer"
+                  variant="outline"
+                  className="mt-2 w-full"
                   onPress={handleCloseDetails}
-                  style={{ backgroundColor: colors.border, borderColor: colors.border }}
-                  className="h-16 rounded-[20px] items-center justify-center w-full mt-2 border"
-                >
-                  <Text style={{ color: colors.text }} className="font-body-bold text-base">Fermer</Text>
-                </TouchableOpacity>
+                />
               </ScrollView>
             )}
           </View>
@@ -486,7 +660,7 @@ export default function ReservationsScreen() {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(11, 15, 26, 0.6)',
     justifyContent: 'flex-end',
   },
   modalContent: {

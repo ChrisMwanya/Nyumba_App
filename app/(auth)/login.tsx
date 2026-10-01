@@ -1,10 +1,12 @@
+import BrandHero from '@/components/ui/BrandHero';
+import Button from '@/components/ui/Button';
+import { getLogo } from '@/constants/branding';
 import { ApiError, useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -38,17 +40,23 @@ export default function LoginScreen() {
       await signIn(identifier.trim(), password);
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 401 || err.status === 400) {
+        if (err.status === 401) {
           setGlobalError('Email/Téléphone ou mot de passe incorrect.');
-        } else if (err.status === 403) {
-          setGlobalError('Votre compte est désactivé. Contactez le support.');
+        } else if (err.status === 400) {
+          setGlobalError(
+            err.errors?.[0]?.message ?? 'Email ou numéro de téléphone invalide.'
+          );
+        } else if (err.status === 429) {
+          setGlobalError(err.message);
         } else {
           setGlobalError('Une erreur est survenue. Réessayez plus tard.');
         }
       } else {
-        console.log("erreur" + err);
-        
-        setGlobalError('Impossible de joindre le serveur. Vérifiez votre connexion.');
+        console.log('erreur' + err);
+
+        setGlobalError(
+          'Impossible de joindre le serveur. Vérifiez votre connexion.'
+        );
       }
     } finally {
       setLoading(false);
@@ -65,33 +73,53 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* En-tête avec fond sombre et accent teal */}
-        <View style={{ backgroundColor: colors.bg }} className="px-6 pt-20 pb-12 items-center">
-          <View style={{ backgroundColor: colors.surface, borderColor: colors.border }} className="w-20 h-20 rounded-[24px] items-center justify-center border mb-6">
+        {/* En-tête en aplats géométriques, comme la landing */}
+        <BrandHero tile="mint" height={200}>
+          <View
+            style={{ backgroundColor: '#FFFFFF' }}
+            className="absolute bottom-6 left-6 h-16 w-16 items-center justify-center rounded-2xl"
+          >
             <Image
-              source={require('../../assets/images/splash-icon-light.png')}
-              className="w-12 h-12"
+              source={getLogo(false)}
+              className="h-10 w-10"
               resizeMode="contain"
             />
           </View>
-          <Text style={{ color: colors.text }} className="text-3xl font-body-bold mb-2">Nyumba</Text>
-          <Text style={{ color: colors.textMuted }} className="text-sm font-body text-center">
-            Gérez vos propriétés facilement
-          </Text>
-        </View>
+        </BrandHero>
 
         {/* Formulaire */}
-        <View className="flex-1 px-8 pb-10">
-          <Text style={{ color: colors.text }} className="text-2xl font-body-bold mb-2">Content de vous revoir</Text>
-          <Text style={{ color: colors.textMuted }} className="text-sm font-body mb-10">
-            Connectez-vous à votre compte.
+        <View className="flex-1 px-6 pb-10 pt-8">
+          <Text
+            style={{ color: colors.text, letterSpacing: -0.8 }}
+            className="mb-2 font-body-bold text-3xl"
+          >
+            Bienvenue sur Nyumba.
+          </Text>
+          <Text
+            style={{ color: colors.textMuted }}
+            className="mb-8 font-body text-sm"
+          >
+            Connectez-vous pour retrouver vos adresses et vos réservations.
           </Text>
 
           {/* Erreur globale */}
           {globalError && (
-            <View style={{ backgroundColor: colors.errorSoft, borderColor: colors.errorBorder }} className="rounded-2xl px-4 py-4 mb-8 flex-row items-center border">
-              <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
-              <Text style={{ color: colors.error }} className="text-sm font-body ml-3 flex-1">
+            <View
+              style={{
+                backgroundColor: colors.errorSoft,
+                borderColor: colors.errorBorder,
+              }}
+              className="mb-6 flex-row items-center rounded-2xl border px-4 py-3.5"
+            >
+              <Ionicons
+                name="alert-circle-outline"
+                size={20}
+                color={colors.error}
+              />
+              <Text
+                style={{ color: colors.error }}
+                className="ml-3 flex-1 font-body text-sm"
+              >
                 {globalError}
               </Text>
             </View>
@@ -99,15 +127,20 @@ export default function LoginScreen() {
 
           {/* Champ Identifiant */}
           <View className="mb-6">
-            <Text style={{ color: colors.textMuted }} className="text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
+            <Text
+              style={{ color: colors.textMuted }}
+              className="mb-2 font-body-semibold text-sm"
+            >
               Email ou Téléphone
             </Text>
             <View
               style={{
                 backgroundColor: colors.surface,
-                borderColor: identifierFocused ? colors.borderFocused : colors.border,
+                borderColor: identifierFocused
+                  ? colors.borderFocused
+                  : colors.input,
               }}
-              className="flex-row items-center border rounded-2xl px-4 py-4"
+              className="flex-row items-center rounded-2xl border px-4 py-3.5"
             >
               <Ionicons
                 name="person-outline"
@@ -117,11 +150,14 @@ export default function LoginScreen() {
               />
               <TextInput
                 style={{ color: colors.text }}
-                className="flex-1 text-base font-body"
+                className="flex-1 font-body text-base"
                 placeholder="votre@email.com ou 07..."
                 placeholderTextColor={colors.textMuted}
                 value={identifier}
-                onChangeText={(v) => { setIdentifier(v); setGlobalError(null); }}
+                onChangeText={v => {
+                  setIdentifier(v);
+                  setGlobalError(null);
+                }}
                 keyboardType="default"
                 autoCapitalize="none"
                 onFocus={() => setIdentifierFocused(true)}
@@ -132,15 +168,20 @@ export default function LoginScreen() {
 
           {/* Champ Mot de passe */}
           <View className="mb-4">
-            <Text style={{ color: colors.textMuted }} className="text-xs font-body-medium mb-2 uppercase tracking-widest ml-1">
+            <Text
+              style={{ color: colors.textMuted }}
+              className="mb-2 font-body-semibold text-sm"
+            >
               Mot de passe
             </Text>
             <View
               style={{
                 backgroundColor: colors.surface,
-                borderColor: passwordFocused ? colors.borderFocused : colors.border,
+                borderColor: passwordFocused
+                  ? colors.borderFocused
+                  : colors.input,
               }}
-              className="flex-row items-center border rounded-2xl px-4 py-4"
+              className="flex-row items-center rounded-2xl border px-4 py-3.5"
             >
               <Ionicons
                 name="lock-closed-outline"
@@ -150,11 +191,14 @@ export default function LoginScreen() {
               />
               <TextInput
                 style={{ color: colors.text }}
-                className="flex-1 text-base font-body"
+                className="flex-1 font-body text-base"
                 placeholder="••••••••"
                 placeholderTextColor={colors.textMuted}
                 value={password}
-                onChangeText={(v) => { setPassword(v); setGlobalError(null); }}
+                onChangeText={v => {
+                  setPassword(v);
+                  setGlobalError(null);
+                }}
                 secureTextEntry={!showPassword}
                 onFocus={() => setPasswordFocused(true)}
                 onBlur={() => setPasswordFocused(false)}
@@ -170,39 +214,40 @@ export default function LoginScreen() {
           </View>
 
           {/* Mot de passe oublié */}
-          <View className="items-end mb-10">
-            <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password' as any)}>
-              <Text style={{ color: colors.teal }} className="text-sm font-body-medium">
+          <View className="mb-10 items-end">
+            <TouchableOpacity
+              onPress={() => router.push('/(auth)/forgot-password' as any)}
+            >
+              <Text
+                style={{ color: colors.teal }}
+                className="font-body-medium text-sm"
+              >
                 Mot de passe oublié ?
               </Text>
             </TouchableOpacity>
           </View>
 
           {/* Bouton Connexion */}
-          <TouchableOpacity
-            style={{ backgroundColor: colors.teal, opacity: loading ? 0.7 : 1 }}
-            className="rounded-2xl py-5 items-center"
+          <Button
+            title="Se connecter"
             onPress={handleLogin}
-            activeOpacity={0.8}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text className="text-white text-base font-body-bold tracking-wider">
-                Se connecter
-              </Text>
-            )}
-          </TouchableOpacity>
+            loading={loading}
+          />
 
           {/* Lien vers inscription */}
-          <View className="flex-row justify-center items-center mt-10">
-            <Text style={{ color: colors.textMuted }} className="text-sm font-body">
+          <View className="mt-10 flex-row items-center justify-center">
+            <Text
+              style={{ color: colors.textMuted }}
+              className="font-body text-sm"
+            >
               Pas encore de compte ?{' '}
             </Text>
-            <Link href={"/(auth)/register" as any} asChild>
+            <Link href={'/(auth)/register' as any} asChild>
               <TouchableOpacity>
-                <Text style={{ color: colors.text }} className="font-body-bold text-sm">
+                <Text
+                  style={{ color: colors.teal }}
+                  className="font-body-bold text-sm"
+                >
                   Créer un compte
                 </Text>
               </TouchableOpacity>

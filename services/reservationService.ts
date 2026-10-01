@@ -1,91 +1,89 @@
 import { apiRequest } from './api';
 
+export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+
 export type Reservation = {
-  id: number;
-  annonceId: number;
-  userId: number;
+  id: string;
+  annonceId: string;
   startDate: string;
-  endDate: string;
+  endDate: string | null;
   guestsCount: number;
-  status: string; // 'en_attente_paiement' | 'confirmee' | 'annulee'
+  status: BookingStatus;
   totalAmount: number;
-  typeReservation?: string;
   createdAt: string;
-  updatedAt?: string;
   annonce?: {
-    id: number;
+    id: string;
     title: string;
-    coverImageUrl: string | null;
-    price: number;
-    currency: string;
-    address: string | null;
   };
 };
 
 export type AvailabilityResponse = {
   available: boolean;
-  message: string;
 };
 
-export type QuoteResponse = {
-  basePrice: number;
-  duration: number;
-  durationType: 'nights' | 'days' | 'months';
-  subtotal: number;
-  serviceFee: number;
-  total: number;
-  currency: string;
+// Booking tel que renvoyé par ApiExpress (totalPrice est un Decimal sérialisé en chaîne)
+type ApiBooking = {
+  id: string;
+  listingId: string;
+  startDate: string;
+  endDate: string | null;
+  guestsCount: number;
+  status: BookingStatus;
+  totalPrice: string | number;
+  createdAt: string;
+  listing?: { id: string; name: string };
 };
 
-export function checkAvailability(data: { 
-  annonce_id: number, 
-  start_date: string, 
-  end_date: string, 
-  guests_count: number 
-}): Promise<AvailabilityResponse> {
-  return apiRequest<AvailabilityResponse>('/reservations/check-availability', {
-    method: 'POST',
-    body: data,
-  });
+function toReservation(booking: ApiBooking): Reservation {
+  return {
+    id: booking.id,
+    annonceId: booking.listingId,
+    startDate: booking.startDate,
+    endDate: booking.endDate,
+    guestsCount: booking.guestsCount,
+    status: booking.status,
+    totalAmount: Number(booking.totalPrice),
+    createdAt: booking.createdAt,
+    annonce: booking.listing
+      ? { id: booking.listing.id, title: booking.listing.name }
+      : undefined,
+  };
 }
 
-export function getQuote(data: { 
-  annonce_id: number, 
-  start_date: string, 
-  end_date: string, 
-  guests_count: number 
-}): Promise<QuoteResponse> {
-  return apiRequest<QuoteResponse>('/reservations/quote', {
-    method: 'POST',
-    body: data,
-  });
+// POST /api/bookings/listings/{id}/check-availability (🔒 Auth Requise)
+export async function checkAvailability(
+  listingId: string,
+  dates: { startDate: string; endDate?: string },
+  token: string
+): Promise<AvailabilityResponse> {
+  const { available } = await apiRequest<{ available: boolean }>(
+    `/bookings/listings/${listingId}/check-availability`,
+    { method: 'POST', body: dates, token }
+  );
+  return { available };
 }
 
-export function createReservation(data: { 
-  annonce_id: number, 
-  start_date: string, 
-  end_date: string, 
-  guests_count: number,
-  options?: any[]
-}, token?: string): Promise<Reservation> {
-  return apiRequest<Reservation>('/reservations', {
-    method: 'POST',
-    body: data,
-    token,
-  });
+// POST /api/bookings (🔒 Auth Requise) — le montant est calculé côté serveur
+export async function createReservation(
+  data: {
+    listingId: string;
+    startDate: string;
+    endDate?: string;
+    guestsCount: number;
+  },
+  token: string
+): Promise<Reservation> {
+  return toReservation(
+    await apiRequest<ApiBooking>('/bookings', {
+      method: 'POST',
+      body: data,
+      token,
+    })
+  );
 }
 
-export function getMyReservations(token: string): Promise<Reservation[]> {
-  return apiRequest<Reservation[]>('/reservations', {
-    method: 'GET',
-    token,
-  });
+// GET /api/bookings/me (🔒 Auth Requise)
+export async function getMyReservations(token: string): Promise<Reservation[]> {
+  const bookings = await apiRequest<ApiBooking[]>('/bookings/me', { token });
+  return bookings.map(toReservation);
 }
-
-export function getReservationDetails(id: number, token: string): Promise<Reservation> {
-  return apiRequest<Reservation>(`/reservations/${id}`, {
-    method: 'GET',
-    token,
-  });
-}
-

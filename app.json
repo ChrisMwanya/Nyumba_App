@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.nyumba-mobile",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Nyumba utilise votre position pour afficher sur la carte les bons coins autour de vous et calculer vos itinéraires."
       }
     },
     "android": {
@@ -24,16 +25,6 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "splash": {
-        "image": "./assets/images/splash-icon-dark.png",
-        "imageWidth": 200,
-        "resizeMode": "contain",
-        "backgroundColor": "#ffffff",
-        "dark": {
-          "image": "./assets/images/splash-icon-light.png",
-          "backgroundColor": "#000000"
-        }
-      },
       "package": "com.chrismwanya.nyumba"
     },
     "web": {
@@ -48,28 +39,35 @@
           "ios": {
             "image": "./assets/images/splash-icon-dark.png",
             "imageWidth": 200,
-            "resizeMode": "cover",
+            "resizeMode": "contain",
             "backgroundColor": "#ffffff",
             "dark": {
               "image": "./assets/images/splash-icon-light.png",
-              "backgroundColor": "#000000"
+              "backgroundColor": "#0D1322"
             }
           },
           "android": {
             "image": "./assets/images/splash-icon-dark.png",
             "imageWidth": 200,
-            "resizeMode": "cover",
+            "resizeMode": "contain",
             "backgroundColor": "#ffffff",
             "dark": {
               "image": "./assets/images/splash-icon-light.png",
-              "backgroundColor": "#000000"
+              "backgroundColor": "#0D1322"
             }
           }
         }
       ],
       "expo-font",
       "expo-secure-store",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Nyumba utilise votre position pour afficher sur la carte les bons coins autour de vous et calculer vos itinéraires."
+        }
+      ],
+      "@rnmapbox/maps"
     ],
     "experiments": {
       "typedRoutes": true,

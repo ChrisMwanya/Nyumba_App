@@ -1,9 +1,20 @@
 import { ApiError } from '@/services/api';
-import type { AuthUser, VerifyOtpResponse } from '@/services/authService';
+import type {
+  AuthTokens,
+  AuthUser,
+  LoginResponse,
+} from '@/services/authService';
 import * as authService from '@/services/authService';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 const SECURE_KEYS = {
   ACCESS_TOKEN: 'nyumba_access_token',
@@ -12,7 +23,7 @@ const SECURE_KEYS = {
 };
 
 export type PendingVerification = {
-  userId: number;
+  // Email ou téléphone utilisé comme identifiant auprès de l'API
   destination: string;
   verificationMethod: 'email' | 'sms';
 };
@@ -23,42 +34,77 @@ type AuthContextType = {
   pendingVerification: PendingVerification | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signIn: (uid: string, password: string) => Promise<void>;
+  signIn: (identifier: string, password: string) => Promise<void>;
   signUp: (payload: {
     fullName: string;
     email: string;
     phone?: string;
     password: string;
-    passwordConfirmation: string;
   }) => Promise<void>;
   signOut: () => Promise<void>;
   updateUser: (user: AuthUser) => void;
+  /** Adopte un couple de jetons réémis par l'API (changement de mot de passe). */
+  applyTokens: (tokens: AuthTokens) => Promise<void>;
   setPendingVerification: (data: PendingVerification | null) => void;
-  completeSignIn: (data: VerifyOtpResponse) => Promise<void>;
+  confirmOtp: (otp: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function pendingFor(identifier: string): PendingVerification {
+  return {
+    destination: identifier,
+    verificationMethod: identifier.includes('@') ? 'email' : 'sms',
+  };
+}
+
 async function savePendingVerification(data: PendingVerification | null) {
   if (data) {
-    await SecureStore.setItemAsync(SECURE_KEYS.PENDING_VERIFICATION, JSON.stringify(data));
+    await SecureStore.setItemAsync(
+      SECURE_KEYS.PENDING_VERIFICATION,
+      JSON.stringify(data)
+    );
   } else {
     await SecureStore.deleteItemAsync(SECURE_KEYS.PENDING_VERIFICATION);
   }
 }
 
+async function saveTokens(tokens: AuthTokens) {
+  await SecureStore.setItemAsync(SECURE_KEYS.ACCESS_TOKEN, tokens.accessToken);
+  await SecureStore.setItemAsync(
+    SECURE_KEYS.REFRESH_TOKEN,
+    tokens.refreshToken
+  );
+}
+
+async function clearTokens() {
+  await SecureStore.deleteItemAsync(SECURE_KEYS.ACCESS_TOKEN);
+  await SecureStore.deleteItemAsync(SECURE_KEYS.REFRESH_TOKEN);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [pendingVerification, setPendingVerificationState] = useState<PendingVerification | null>(null);
+  const [pendingVerification, setPendingVerificationState] =
+    useState<PendingVerification | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // L'API ne renvoie pas de token après la vérification OTP : on garde les
+  // identifiants en mémoire (jamais persistés) pour reconnecter l'utilisateur
+  // automatiquement une fois son compte vérifié.
+  const credentialsRef = useRef<{
+    identifier: string;
+    password: string;
+  } | null>(null);
 
   // Charger la session persistée au démarrage
   useEffect(() => {
     async function loadSession() {
       try {
         // Restaurer pendingVerification si présent
-        const savedPending = await SecureStore.getItemAsync(SECURE_KEYS.PENDING_VERIFICATION);
+        const savedPending = await SecureStore.getItemAsync(
+          SECURE_KEYS.PENDING_VERIFICATION
+        );
         if (savedPending) {
           setPendingVerificationState(JSON.parse(savedPending));
         }
@@ -71,17 +117,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {
         try {
-          const savedToken = await SecureStore.getItemAsync(SECURE_KEYS.ACCESS_TOKEN);
-          if (savedToken) {
-            const { token } = await authService.refreshToken(savedToken);
-            await SecureStore.setItemAsync(SECURE_KEYS.ACCESS_TOKEN, token.value);
-            const me = await authService.getMe(token.value);
-            setAccessToken(token.value);
+          const savedRefresh = await SecureStore.getItemAsync(
+            SECURE_KEYS.REFRESH_TOKEN
+          );
+          if (savedRefresh) {
+            const { tokens } = await authService.refreshToken(savedRefresh);
+            await saveTokens(tokens);
+            const me = await authService.getMe(tokens.accessToken);
+            setAccessToken(tokens.accessToken);
             setUser(me);
           }
         } catch {
-          await SecureStore.deleteItemAsync(SECURE_KEYS.ACCESS_TOKEN);
-          await SecureStore.deleteItemAsync(SECURE_KEYS.REFRESH_TOKEN);
+          await clearTokens();
         }
       } finally {
         setIsLoading(false);
@@ -91,65 +138,104 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Wrapper qui persiste ET met à jour le state
-  const setPendingVerification = useCallback(async (data: PendingVerification | null) => {
-    await savePendingVerification(data);
-    setPendingVerificationState(data);
-  }, []);
+  const setPendingVerification = useCallback(
+    async (data: PendingVerification | null) => {
+      await savePendingVerification(data);
+      setPendingVerificationState(data);
+    },
+    []
+  );
 
-  const signIn = useCallback(async (uid: string, password: string) => {
-    const data = await authService.login(uid, password);
-    const tokenValue = data.token.value;
-    await SecureStore.setItemAsync(SECURE_KEYS.ACCESS_TOKEN, tokenValue);
-    setAccessToken(tokenValue);
-    setUser(data.user);
-    const status = data.user?.status?.toLowerCase().trim();
-    if (status === 'active') {
-      router.replace('/(tabs)' as any);
-    } else {
-      // Compte en_attente — rediriger vers OTP
-      const pending: PendingVerification = {
-        userId: data.user.id,
-        destination: data.user.email ?? data.user.phone ?? '',
-        verificationMethod: data.user.email ? 'email' : 'sms',
-      };
-      await savePendingVerification(pending);
-      setPendingVerificationState(pending);
+  const startSession = useCallback(
+    async (data: LoginResponse) => {
+      await saveTokens(data.tokens);
+      // Le login ne renvoie que id/role/fullName : on complète avec le profil
+      const me = await authService
+        .getMe(data.tokens.accessToken)
+        .catch(() => data.user);
+      credentialsRef.current = null;
+      await setPendingVerification(null);
+      setAccessToken(data.tokens.accessToken);
+      setUser(me);
+      // La redirection (onboarding ou accueil) est faite par le layout racine
+    },
+    [setPendingVerification]
+  );
+
+  const goToOtp = useCallback(
+    async (identifier: string, password: string) => {
+      credentialsRef.current = { identifier, password };
+      await setPendingVerification(pendingFor(identifier));
       router.replace('/(auth)/verify-otp' as any);
-    }
-  }, []);
+    },
+    [setPendingVerification]
+  );
 
-  const signUp = useCallback(async (payload: {
-    fullName: string;
-    email: string;
-    phone?: string;
-    password: string;
-    passwordConfirmation: string;
-  }) => {
-    const data = await authService.signup(payload);
-    const pending: PendingVerification = {
-      userId: data.user.id,
-      destination: data.destination,
-      verificationMethod: data.verificationMethod,
-    };
-    // Persister avant la navigation pour éviter la perte d'état
-    await savePendingVerification(pending);
-    setPendingVerificationState(pending);
-    router.replace('/(auth)/verify-otp' as any);
-  }, []);
+  const signIn = useCallback(
+    async (identifier: string, password: string) => {
+      let data: LoginResponse;
+      try {
+        data = await authService.login(identifier, password);
+      } catch (err) {
+        // 403 : identifiants corrects mais compte non vérifié → nouveau code puis écran OTP
+        if (err instanceof ApiError && err.status === 403) {
+          await authService.resendOtp(identifier).catch(() => {});
+          await goToOtp(identifier, password);
+          return;
+        }
+        throw err;
+      }
+      await startSession(data);
+    },
+    [goToOtp, startSession]
+  );
 
-  const completeSignIn = useCallback(async (data: VerifyOtpResponse) => {
-    const tokenValue = data.token.value;
-    await SecureStore.setItemAsync(SECURE_KEYS.ACCESS_TOKEN, tokenValue);
-    await savePendingVerification(null);
-    setAccessToken(tokenValue);
-    setUser(data.user);
-    setPendingVerificationState(null);
-    const status = data.user?.status?.toLowerCase().trim();
-    if (status === 'active') {
-      router.replace('/(tabs)' as any);
-    } else {
-      router.replace('/(auth)/verify-otp' as any);
-    }
+  const signUp = useCallback(
+    async (payload: {
+      fullName: string;
+      email: string;
+      phone?: string;
+      password: string;
+    }) => {
+      await authService.signup(payload);
+      await goToOtp(payload.email || payload.phone!, payload.password);
+    },
+    [goToOtp]
+  );
+
+  const confirmOtp = useCallback(
+    async (otp: string) => {
+      if (!pendingVerification) return;
+      await authService.verifyOtp(pendingVerification.destination, otp);
+
+      const credentials = credentialsRef.current;
+      if (credentials) {
+        try {
+          await startSession(
+            await authService.login(
+              credentials.identifier,
+              credentials.password
+            )
+          );
+          return;
+        } catch {
+          // Compte vérifié mais reconnexion impossible : l'utilisateur se connectera manuellement
+        }
+      }
+      // App relancée entre-temps : les identifiants ne sont plus en mémoire
+      credentialsRef.current = null;
+      await setPendingVerification(null);
+      router.replace('/(auth)/login' as any);
+    },
+    [pendingVerification, setPendingVerification, startSession]
+  );
+
+  // Après un changement de mot de passe, l'API invalide toutes les sessions et
+  // rend des jetons neufs : sans cette adoption, la requête suivante de cet
+  // appareil serait rejetée et l'utilisateur se retrouverait déconnecté.
+  const applyTokens = useCallback(async (tokens: AuthTokens) => {
+    await saveTokens(tokens);
+    setAccessToken(tokens.accessToken);
   }, []);
 
   const signOut = useCallback(async () => {
@@ -160,9 +246,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Ignorer les erreurs de déconnexion réseau
       }
     }
-    await SecureStore.deleteItemAsync(SECURE_KEYS.ACCESS_TOKEN);
-    await SecureStore.deleteItemAsync(SECURE_KEYS.REFRESH_TOKEN);
+    await clearTokens();
     await savePendingVerification(null);
+    credentialsRef.current = null;
     setAccessToken(null);
     setUser(null);
     setPendingVerificationState(null);
@@ -181,8 +267,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUp,
         signOut,
         updateUser: setUser,
+        applyTokens,
         setPendingVerification,
-        completeSignIn,
+        confirmOtp,
       }}
     >
       {children}

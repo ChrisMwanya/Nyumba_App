@@ -1,243 +1,289 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  Modal, 
-  TouchableOpacity, 
-  ScrollView, 
-  TextInput,
-  Switch,
-  ActivityIndicator
-} from 'react-native';
+import Button from '@/components/ui/Button';
 import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { useTheme } from '@/contexts/ThemeContext';
-import { Ville } from '@/services/annonceService';
+import type { Ville } from '@/services/annonceService';
 import { getVilles } from '@/services/villeService';
-import { getCommunes, Commune } from '@/services/communeService';
+
+/** Gammes de prix telles que l'API les stocke (champ libre `priceRange`). */
+export const PRICE_RANGES = ['$', '$$', '$$$', '$$$$'] as const;
+
+const PRICE_HINTS: Record<string, string> = {
+  $: 'Petit budget',
+  $$: 'Abordable',
+  $$$: 'Haut de gamme',
+  $$$$: 'Luxe',
+};
+
+export type FilterSelection = {
+  /** `undefined` = toutes les villes. */
+  cityId?: string;
+  /** Vide = toutes les gammes. */
+  priceRanges: string[];
+};
+
+export const EMPTY_SELECTION: FilterSelection = { priceRanges: [] };
+
+/** Nombre de critères actifs — sert à marquer le bouton Filtres de l'accueil. */
+export const countActiveFilters = (selection: FilterSelection): number =>
+  (selection.cityId ? 1 : 0) + (selection.priceRanges.length > 0 ? 1 : 0);
 
 type FiltersModalProps = {
   visible: boolean;
   onClose: () => void;
-  onApply: (filters: any) => void;
-  initialFilters: any;
+  onApply: (selection: FilterSelection) => void;
+  selection: FilterSelection;
 };
 
-export default function FiltersModal({ visible, onClose, onApply, initialFilters }: FiltersModalProps) {
+/**
+ * Panneau de filtres.
+ *
+ * La ville est filtrée par l'API ; la gamme de prix l'est côté client, sur les
+ * annonces déjà chargées — l'API n'expose pas ce critère. Les autres (note,
+ * commune, disponibilité) restent absents tant qu'elle ne les gère pas : mieux
+ * vaut un panneau court et honnête que des contrôles sans effet.
+ */
+export default function FiltersModal({
+  visible,
+  onClose,
+  onApply,
+  selection,
+}: FiltersModalProps) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+
   const [villes, setVilles] = useState<Ville[]>([]);
-  const [communes, setCommunes] = useState<Commune[]>([]);
-  const [loadingCommunes, setLoadingCommunes] = useState(false);
-  
-  const [minPrice, setMinPrice] = useState(initialFilters.min_price?.toString() || '');
-  const [maxPrice, setMaxPrice] = useState(initialFilters.max_price?.toString() || '');
-  const [selectedVilleId, setSelectedVilleId] = useState<number | null>(initialFilters.ville_id || null);
-  const [selectedCommuneId, setSelectedCommuneId] = useState<number | null>(initialFilters.commune_id || null);
-  const [minRating, setMinRating] = useState(initialFilters.min_rating || 0);
-  const [onlyAvailable, setOnlyAvailable] = useState(initialFilters.status === 'available');
+  const [loadingVilles, setLoadingVilles] = useState(false);
+  const [draft, setDraft] = useState<FilterSelection>(selection);
 
   useEffect(() => {
-    if (visible) {
-      getVilles().then(setVilles).catch(console.error);
+    if (!visible) return;
+
+    // Repart de la sélection appliquée : sans ça, rouvrir le panneau après un
+    // changement afficherait l'état de la session précédente.
+    setDraft(selection);
+
+    if (villes.length === 0) {
+      setLoadingVilles(true);
+      getVilles()
+        .then(setVilles)
+        .catch(console.error)
+        .finally(() => setLoadingVilles(false));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  useEffect(() => {
-    if (selectedVilleId) {
-      setLoadingCommunes(true);
-      getCommunes(selectedVilleId)
-        .then(setCommunes)
-        .catch(console.error)
-        .finally(() => setLoadingCommunes(false));
-    } else {
-      setCommunes([]);
-      setSelectedCommuneId(null);
-    }
-  }, [selectedVilleId]);
-
-  const handleApply = () => {
-    onApply({
-      min_price: minPrice ? parseInt(minPrice) : undefined,
-      max_price: maxPrice ? parseInt(maxPrice) : undefined,
-      ville_id: selectedVilleId,
-      commune_id: selectedCommuneId,
-      min_rating: minRating || undefined,
-      status: onlyAvailable ? 'available' : undefined,
-    });
-    onClose();
+  const togglePrice = (price: string) => {
+    setDraft(current => ({
+      ...current,
+      priceRanges: current.priceRanges.includes(price)
+        ? current.priceRanges.filter(item => item !== price)
+        : [...current.priceRanges, price],
+    }));
   };
 
-  const handleReset = () => {
-    setMinPrice('');
-    setMaxPrice('');
-    setSelectedVilleId(null);
-    setSelectedCommuneId(null);
-    setMinRating(0);
-    setOnlyAvailable(true);
-  };
+  const activeCount = countActiveFilters(draft);
+
+  /* ---------------------------------------------------------------- */
+
+  const sectionTitle = (title: string, hint?: string) => (
+    <View className="mb-3 flex-row items-baseline justify-between">
+      <Text
+        style={{ color: colors.textMuted }}
+        className="font-body-semibold text-sm"
+      >
+        {title}
+      </Text>
+      {hint && (
+        <Text
+          style={{ color: colors.textMuted }}
+          className="font-body text-[11px]"
+        >
+          {hint}
+        </Text>
+      )}
+    </View>
+  );
+
+  const chip = (
+    label: string,
+    active: boolean,
+    onPress: () => void,
+    sublabel?: string
+  ) => (
+    <TouchableOpacity
+      key={label}
+      onPress={onPress}
+      activeOpacity={0.85}
+      style={{
+        backgroundColor: active ? colors.cta : colors.surface,
+        borderColor: active ? colors.cta : colors.border,
+      }}
+      className="flex-row items-center rounded-full border px-4 py-2.5"
+    >
+      {active && (
+        <Ionicons
+          name="checkmark"
+          size={15}
+          color={colors.ctaText}
+          style={{ marginRight: 6 }}
+        />
+      )}
+      <Text
+        style={{ color: active ? colors.ctaText : colors.text }}
+        className="font-body-semibold text-sm"
+      >
+        {label}
+      </Text>
+      {sublabel && (
+        <Text
+          style={{
+            color: active ? colors.ctaText : colors.textMuted,
+            opacity: active ? 0.7 : 1,
+          }}
+          className="ml-2 font-body text-xs"
+        >
+          {sublabel}
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
 
   return (
     <Modal
       visible={visible}
       animationType="slide"
-      transparent={true}
+      transparent
       onRequestClose={onClose}
     >
-      <View className="flex-1 justify-end" style={{ backgroundColor: colors.modalOverlay }}>
-        <View style={{ backgroundColor: colors.bg }} className="rounded-t-[40px] h-[85%] p-6">
-          <View className="flex-row justify-between items-center mb-8">
-            <Text style={{ color: colors.text }} className="text-2xl font-body-bold">Filtres</Text>
-            <TouchableOpacity onPress={onClose} style={{ backgroundColor: colors.surface }} className="p-2 rounded-full">
-              <Ionicons name="close" size={24} color={colors.text} />
+      <View className="flex-1 justify-end">
+        <Pressable
+          style={{ backgroundColor: colors.modalOverlay }}
+          className="absolute inset-0"
+          onPress={onClose}
+        />
+
+        {/* Hauteur dictée par le contenu : un panneau court ne doit pas
+            occuper tout l'écran pour deux réglages. */}
+        <View
+          style={{
+            backgroundColor: colors.bg,
+            maxHeight: '85%',
+            paddingBottom: insets.bottom + 16,
+          }}
+          className="rounded-t-3xl"
+        >
+          <View className="items-center pb-1 pt-3">
+            <View
+              style={{ backgroundColor: colors.border }}
+              className="h-1.5 w-12 rounded-full"
+            />
+          </View>
+
+          <View className="flex-row items-center justify-between px-6 pb-5 pt-3">
+            <View className="flex-row items-center">
+              <Text
+                style={{ color: colors.text }}
+                className="font-body-bold text-2xl"
+              >
+                Filtres
+              </Text>
+              {activeCount > 0 && (
+                <View
+                  style={{ backgroundColor: colors.tealSoft }}
+                  className="ml-3 rounded-full px-2.5 py-1"
+                >
+                  <Text
+                    style={{ color: colors.tealInk }}
+                    className="font-body-bold text-xs"
+                  >
+                    {activeCount}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity
+              onPress={onClose}
+              style={{ backgroundColor: colors.muted }}
+              className="h-10 w-10 items-center justify-center rounded-full"
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Fermer"
+            >
+              <Ionicons name="close" size={20} color={colors.text} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Price Range */}
-            <View className="mb-8">
-              <Text style={{ color: colors.text }} className="text-lg font-body-bold mb-4">Prix (USD)</Text>
-              <View className="flex-row items-center justify-between">
-                <View style={{ backgroundColor: colors.surface }} className="flex-1 rounded-2xl p-4 mr-2">
-                  <Text style={{ color: colors.textMuted }} className="text-xs mb-1">Min</Text>
-                  <TextInput
-                    style={{ color: colors.text }}
-                    className="font-body text-base"
-                    placeholder="0"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="numeric"
-                    value={minPrice}
-                    onChangeText={setMinPrice}
-                  />
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 8 }}
+          >
+            {/* --- Ville --- */}
+            <View className="mb-7">
+              {sectionTitle('Ville')}
+              {loadingVilles ? (
+                <ActivityIndicator color={colors.teal} className="self-start" />
+              ) : (
+                <View className="flex-row flex-wrap gap-2">
+                  {chip('Toutes', !draft.cityId, () =>
+                    setDraft(current => ({ ...current, cityId: undefined }))
+                  )}
+                  {villes.map(ville =>
+                    chip(ville.name, draft.cityId === ville.id, () =>
+                      setDraft(current => ({ ...current, cityId: ville.id }))
+                    )
+                  )}
                 </View>
-                <View style={{ backgroundColor: colors.surface }} className="flex-1 rounded-2xl p-4 ml-2">
-                  <Text style={{ color: colors.textMuted }} className="text-xs mb-1">Max</Text>
-                  <TextInput
-                    style={{ color: colors.text }}
-                    className="font-body text-base"
-                    placeholder="10000"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="numeric"
-                    value={maxPrice}
-                    onChangeText={setMaxPrice}
-                  />
-                </View>
-              </View>
+              )}
             </View>
 
-            {/* City Selection */}
-            <View className="mb-8">
-              <Text style={{ color: colors.text }} className="text-lg font-body-bold mb-4">Ville</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <TouchableOpacity
-                  onPress={() => setSelectedVilleId(null)}
-                  style={{
-                    backgroundColor: selectedVilleId === null ? colors.teal : colors.surface,
-                    borderColor: selectedVilleId === null ? colors.teal : colors.border,
-                  }}
-                  className="mr-3 px-6 py-3 rounded-2xl border"
-                >
-                  <Text style={{ color: selectedVilleId === null ? 'white' : colors.textMuted }} className="font-body-medium">Toutes</Text>
-                </TouchableOpacity>
-                {villes.map((ville) => (
-                  <TouchableOpacity
-                    key={ville.id}
-                    onPress={() => setSelectedVilleId(ville.id)}
-                    style={{
-                      backgroundColor: selectedVilleId === ville.id ? colors.teal : colors.surface,
-                      borderColor: selectedVilleId === ville.id ? colors.teal : colors.border,
-                    }}
-                    className="mr-3 px-6 py-3 rounded-2xl border"
-                  >
-                    <Text style={{ color: selectedVilleId === ville.id ? 'white' : colors.textMuted }} className="font-body-medium">{ville.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            {/* Commune Selection (Visible only if Ville is selected) */}
-            {selectedVilleId && (
-              <View className="mb-8">
-                <Text style={{ color: colors.text }} className="text-lg font-body-bold mb-4">Commune</Text>
-                {loadingCommunes ? (
-                  <ActivityIndicator color={colors.teal} />
-                ) : (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <TouchableOpacity
-                      onPress={() => setSelectedCommuneId(null)}
-                      style={{
-                        backgroundColor: selectedCommuneId === null ? colors.teal : colors.surface,
-                        borderColor: selectedCommuneId === null ? colors.teal : colors.border,
-                      }}
-                      className="mr-3 px-6 py-3 rounded-2xl border"
-                    >
-                      <Text style={{ color: selectedCommuneId === null ? 'white' : colors.textMuted }} className="font-body-medium">Toutes</Text>
-                    </TouchableOpacity>
-                    {communes.map((commune) => (
-                      <TouchableOpacity
-                        key={commune.id}
-                        onPress={() => setSelectedCommuneId(commune.id)}
-                        style={{
-                          backgroundColor: selectedCommuneId === commune.id ? colors.teal : colors.surface,
-                          borderColor: selectedCommuneId === commune.id ? colors.teal : colors.border,
-                        }}
-                        className="mr-3 px-6 py-3 rounded-2xl border"
-                      >
-                        <Text style={{ color: selectedCommuneId === commune.id ? 'white' : colors.textMuted }} className="font-body-medium">{commune.name}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+            {/* --- Gamme de prix --- */}
+            <View className="mb-6">
+              {sectionTitle('Gamme de prix', 'plusieurs choix possibles')}
+              <View className="flex-row flex-wrap gap-2">
+                {PRICE_RANGES.map(price =>
+                  chip(
+                    price,
+                    draft.priceRanges.includes(price),
+                    () => togglePrice(price),
+                    PRICE_HINTS[price]
+                  )
                 )}
               </View>
-            )}
-
-            {/* Rating */}
-            <View className="mb-8">
-              <Text style={{ color: colors.text }} className="text-lg font-body-bold mb-4">Note minimum</Text>
-              <View className="flex-row justify-between">
-                {[0, 1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity
-                    key={star}
-                    onPress={() => setMinRating(star)}
-                    style={{ backgroundColor: minRating === star ? colors.teal : colors.surface }}
-                    className="w-12 h-12 items-center justify-center rounded-xl"
-                  >
-                    <Text style={{ color: minRating === star ? 'white' : colors.textMuted }} className="font-body-bold">
-                      {star === 0 ? 'All' : star}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Availability */}
-            <View style={{ backgroundColor: colors.surface }} className="flex-row items-center justify-between mb-10 p-5 rounded-3xl">
-              <View>
-                <Text style={{ color: colors.text }} className="text-lg font-body-bold">Disponibilité</Text>
-                <Text style={{ color: colors.textMuted }} className="text-sm font-body">Afficher uniquement les biens disponibles</Text>
-              </View>
-              <Switch
-                value={onlyAvailable}
-                onValueChange={setOnlyAvailable}
-                trackColor={{ false: colors.skeleton, true: colors.teal }}
-                thumbColor="#FFFFFF"
-              />
             </View>
           </ScrollView>
 
-          <View className="flex-row gap-4 mt-auto pb-6">
-            <TouchableOpacity
-              onPress={handleReset}
-              style={{ backgroundColor: colors.surface, borderColor: colors.border }}
-              className="flex-1 py-5 rounded-2xl items-center border"
-            >
-              <Text style={{ color: colors.text }} className="font-body-bold text-base">Réinitialiser</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleApply}
-              style={{ backgroundColor: colors.teal, flex: 2 }}
-              className="py-5 rounded-2xl items-center"
-            >
-              <Text className="text-white font-body-bold text-base">Appliquer</Text>
-            </TouchableOpacity>
+          <View
+            style={{ borderTopColor: colors.divider }}
+            className="flex-row gap-3 border-t px-6 pt-5"
+          >
+            <Button
+              title="Réinitialiser"
+              variant="outline"
+              onPress={() => setDraft(EMPTY_SELECTION)}
+              disabled={activeCount === 0}
+              style={{ flex: 1 }}
+            />
+            <Button
+              title="Appliquer"
+              onPress={() => {
+                onApply(draft);
+                onClose();
+              }}
+              style={{ flex: 2 }}
+            />
           </View>
         </View>
       </View>

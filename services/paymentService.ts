@@ -1,36 +1,44 @@
 import { apiRequest } from './api';
 
-export type PaymentMethod = 'mpesa' | 'orange_money' | 'airtel_money' | 'card';
+export type Payment = {
+  id: string;
+  bookingId: string;
+  amount: string;
+  provider: string;
+  status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
+  reference: string | null;
+  createdAt: string;
+};
 
 export type PaymentInitiationResponse = {
-  transactionReference: string;
-  paymentUrl?: string;
-  message: string;
+  payment: Payment;
+  providerResponse: {
+    status: string;
+    transactionId: string;
+    paymentUrl?: string;
+  };
 };
 
-export type PaymentConfirmationResponse = {
-  status: 'success' | 'failure';
-  message: string;
-};
-
-export function initiatePayment(data: { 
-  reservation_id: number, 
-  payment_method: PaymentMethod 
-}, token: string): Promise<PaymentInitiationResponse> {
+// POST /api/payments/initiate (🔒 Auth Requise)
+export function initiatePayment(
+  bookingId: string,
+  token: string
+): Promise<PaymentInitiationResponse> {
   return apiRequest<PaymentInitiationResponse>('/payments/initiate', {
     method: 'POST',
-    body: data,
+    body: { bookingId },
     token,
   });
 }
 
-export function confirmPayment(data: { 
-  transaction_reference: string, 
-  status: 'success' | 'failure' 
-}, token: string): Promise<PaymentConfirmationResponse> {
-  return apiRequest<PaymentConfirmationResponse>('/payments/confirm', {
+// POST /api/payments/confirm (🔒 Auth Requise) — confirme aussi la réservation
+export function confirmPayment(
+  bookingId: string,
+  token: string
+): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>('/payments/confirm', {
     method: 'POST',
-    body: data,
+    body: { bookingId },
     token,
   });
 }

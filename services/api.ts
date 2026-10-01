@@ -1,8 +1,12 @@
-const BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3333') + '/api/v1';
-
+// Retire le « / » final éventuel : sinon `…com//api/…` renvoie un 404.
+const BASE_URL =
+  (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3333').replace(
+    /\/+$/,
+    ''
+  ) + '/api';
 
 type RequestOptions = {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: object;
   token?: string;
 };
@@ -17,7 +21,31 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+// ApiExpress renvoie ses erreurs sous la forme { error: { message, details } },
+// `details` contenant les issues Zod ({ path: ['body', 'champ'], message, code }).
+type ZodIssue = { path?: (string | number)[]; message: string; code?: string };
+
+function toApiError(status: number, raw: any): ApiError {
+  const error = raw?.error;
+  const message =
+    (typeof error === 'string' ? error : error?.message) ??
+    raw?.message ??
+    'Erreur serveur';
+  const details: ZodIssue[] | undefined = Array.isArray(error?.details)
+    ? error.details
+    : undefined;
+  const errors = details?.map(issue => ({
+    message: issue.message,
+    rule: issue.code ?? '',
+    field: String(issue.path?.[issue.path.length - 1] ?? ''),
+  }));
+  return new ApiError(status, errors, message);
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: RequestOptions = {}
+): Promise<T> {
   const { method = 'GET', body, token } = options;
 
   const headers: Record<string, string> = {
@@ -37,19 +65,23 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   const raw = await response.json().catch(() => ({}));
 
-  // L'API Adonis wrappe les réponses dans { data: { ... } } via serialize()
-  // Mais la pagination Lucid retourne { data: [...], meta: {...} }
-  const data = (raw?.data !== undefined && raw?.meta === undefined) ? raw.data : raw;
-
   if (!response.ok) {
-    const message = data?.error ?? data?.message ?? raw?.message ?? 'Erreur serveur';
-    throw new ApiError(response.status, data?.errors ?? raw?.errors, message);
+    throw toApiError(response.status, raw);
   }
+
+  // Certaines routes wrappent leur réponse dans { data: ... } ;
+  // la pagination retourne { data: [...], meta: {...} } et reste telle quelle.
+  const data =
+    raw?.data !== undefined && raw?.meta === undefined ? raw.data : raw;
 
   return data as T;
 }
 
-export async function apiRequestMultipart<T>(path: string, formData: FormData, token?: string): Promise<T> {
+export async function apiRequestMultipart<T>(
+  path: string,
+  formData: FormData,
+  token?: string
+): Promise<T> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
   };
@@ -65,12 +97,13 @@ export async function apiRequestMultipart<T>(path: string, formData: FormData, t
   });
 
   const raw = await response.json().catch(() => ({}));
-  const data = (raw?.data !== undefined && raw?.meta === undefined) ? raw.data : raw;
 
   if (!response.ok) {
-    const message = data?.error ?? data?.message ?? raw?.message ?? 'Erreur serveur';
-    throw new ApiError(response.status, data?.errors ?? raw?.errors, message);
+    throw toApiError(response.status, raw);
   }
+
+  const data =
+    raw?.data !== undefined && raw?.meta === undefined ? raw.data : raw;
 
   return data as T;
 }
