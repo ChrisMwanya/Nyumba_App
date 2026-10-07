@@ -304,8 +304,8 @@ export default function DirectionsScreen() {
 
           {route && route.coordinates.length > 1 && (
             <ShapeSource id="route" shape={routeShape}>
-              {/* Liseré sombre sous le tracé : sans lui, le teal se perd sur
-                  les zones claires de la carte. */}
+              {/* Liseré contrasté sous le tracé, pour le détacher des routes
+                  de la carte. */}
               <LineLayer
                 id="route-casing"
                 style={{
@@ -313,16 +313,20 @@ export default function DirectionsScreen() {
                   lineWidth: 10,
                   lineCap: 'round',
                   lineJoin: 'round',
+                  lineEmissiveStrength: 1,
                 }}
               />
               <LineLayer
                 id="route-line"
                 style={{
-                  // Tracé marine comme sur la landing ; teal vif sur fond sombre
-                  lineColor: isDark ? colors.teal : colors.navy,
+                  // Tracé marine comme sur la landing ; blanc sur fond sombre.
+                  lineColor: isDark ? '#FFFFFF' : colors.navy,
                   lineWidth: 6,
                   lineCap: 'round',
                   lineJoin: 'round',
+                  // Sans émission, l'éclairage « nuit » de la carte assombrit
+                  // le tracé au point de le rendre illisible.
+                  lineEmissiveStrength: 1,
                 }}
               />
             </ShapeSource>

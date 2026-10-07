@@ -10,9 +10,13 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Linking,
+  Platform,
   RefreshControl,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -62,14 +66,51 @@ const RADIUS_STEPS = [2, 5, 10, 20] as const;
 
 type ViewMode = 'map' | 'list';
 type Language = 'fr' | 'en';
+type DayPeriod = 'morning' | 'noon' | 'afternoon' | 'evening' | 'night';
+
+/** Moment de la journée, d'après l'heure locale de l'appareil. */
+function dayPeriodOf(hour: number): DayPeriod {
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 14) return 'noon';
+  if (hour >= 14 && hour < 18) return 'afternoon';
+  if (hour >= 18 && hour < 23) return 'evening';
+  return 'night';
+}
 
 /** Libellés de l'accueil. La bascule FR/EN de la barre du haut pilote ce choix. */
 const LABELS = {
   fr: {
     searchPlaceholder: 'Dites-moi ce que vous cherchez',
     topRated: 'Les mieux notés',
-    hello: 'Bonjour,',
-    guest: 'bienvenue',
+    // Message d'accueil au-dessus de la recherche : la salutation précède le
+    // prénom, la question invite à chercher ce qui convient à l'heure.
+    greetings: {
+      morning: {
+        hello: 'Bonjour',
+        emoji: '☀️',
+        prompt: 'Par où commence-t-on la journée ?',
+      },
+      noon: {
+        hello: 'Bon appétit',
+        emoji: '🍽️',
+        prompt: 'Une bonne table pour le déjeuner ?',
+      },
+      afternoon: {
+        hello: 'Bon après-midi',
+        emoji: '🌤️',
+        prompt: 'Un coin détente pour souffler ?',
+      },
+      evening: {
+        hello: 'Bonsoir',
+        emoji: '🌙',
+        prompt: 'Où sortez-vous ce soir ?',
+      },
+      night: {
+        hello: 'Encore debout',
+        emoji: '✨',
+        prompt: 'Un endroit où passer la nuit ?',
+      },
+    },
     places: 'lieux',
     map: 'Carte',
     list: 'Liste',
@@ -93,8 +134,33 @@ const LABELS = {
   en: {
     searchPlaceholder: 'Tell me what you are looking for',
     topRated: 'Top rated',
-    hello: 'Hello,',
-    guest: 'welcome',
+    greetings: {
+      morning: {
+        hello: 'Good morning',
+        emoji: '☀️',
+        prompt: 'Where shall we start the day?',
+      },
+      noon: {
+        hello: 'Enjoy your meal',
+        emoji: '🍽️',
+        prompt: 'A good table for lunch?',
+      },
+      afternoon: {
+        hello: 'Good afternoon',
+        emoji: '🌤️',
+        prompt: 'A spot to unwind?',
+      },
+      evening: {
+        hello: 'Good evening',
+        emoji: '🌙',
+        prompt: 'Where are you going out tonight?',
+      },
+      night: {
+        hello: 'Still up',
+        emoji: '✨',
+        prompt: 'A place to spend the night?',
+      },
+    },
     places: 'places',
     map: 'Map',
     list: 'List',
@@ -141,13 +207,48 @@ export default function HomeScreen() {
   // Filtre de proximité : éteint, toute la ville ; allumé, seulement `radiusKm`.
   const [nearbyOnly, setNearbyOnly] = useState(false);
   const [radiusKm, setRadiusKm] = useState<number>(RADIUS_STEPS[1]);
-  // Le bandeau (recherche + catégories) flotte au-dessus de la carte : la liste
+  // Le bandeau (commandes + catégories) flotte au-dessus de la carte : la liste
   // doit réserver exactement sa hauteur, qui varie avec l'encoche de l'appareil.
-  const [headerHeight, setHeaderHeight] = useState(200);
+  const [headerHeight, setHeaderHeight] = useState(140);
+  // Même principe en bas pour le bloc message + recherche, mesuré depuis le
+  // bord de l'écran : la barre d'onglets est comprise.
+  const [searchDockHeight, setSearchDockHeight] = useState(tabBarHeight + 130);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [dayPeriod, setDayPeriod] = useState(() =>
+    dayPeriodOf(new Date().getHours())
+  );
 
   const t = LABELS[language];
-  // Prénom seul : le nom complet déborde de la pastille sur un écran étroit.
+  // Prénom seul : le nom complet déborde de la bulle sur un écran étroit.
   const firstName = user?.fullName?.trim().split(/\s+/)[0];
+  const greeting = t.greetings[dayPeriod];
+
+  // L'app peut rester ouverte d'un moment de la journée au suivant.
+  useEffect(() => {
+    const timer = setInterval(
+      () => setDayPeriod(dayPeriodOf(new Date().getHours())),
+      60_000
+    );
+    return () => clearInterval(timer);
+  }, []);
+
+  // Clavier ouvert, la recherche se pose juste au-dessus de lui : la barre
+  // d'onglets, restée sous le clavier, n'a plus à être dégagée.
+  useEffect(() => {
+    const ios = Platform.OS === 'ios';
+    const show = Keyboard.addListener(
+      ios ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hide = Keyboard.addListener(
+      ios ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const [selection, setSelection] = useState<FilterSelection>({
     ...EMPTY_SELECTION,
@@ -201,7 +302,8 @@ export default function HomeScreen() {
 
   /**
    * Annonces filtrées par la recherche. La liste garde l'ordre de l'API (les
-   * mieux notées d'abord) ; la carte les trie du plus proche au plus loin.
+   * mieux notées d'abord) sauf avec « autour de moi » ; la carte les trie
+   * toujours du plus proche au plus loin.
    */
   const visibleAnnonces = useMemo(() => {
     const needle = searchQuery.trim().toLowerCase();
@@ -245,7 +347,9 @@ export default function HomeScreen() {
         })
       : inPriceRange;
 
-    if (viewMode === 'list') return withinRadius;
+    // La liste ne quitte l'ordre des notes que pour « autour de moi », où la
+    // proximité est justement ce qu'on cherche.
+    if (viewMode === 'list' && !nearbyOnly) return withinRadius;
 
     return [...withinRadius].sort((a, b) => {
       const distanceA =
@@ -288,9 +392,9 @@ export default function HomeScreen() {
         latitude: annonce.latitude!,
         longitude: annonce.longitude!,
       })),
-      { bottomPadding: tabBarHeight }
+      { bottomPadding: searchDockHeight }
     );
-  }, [mappable, searchQuery, viewMode, tabBarHeight]);
+  }, [mappable, searchQuery, viewMode, searchDockHeight]);
 
   const selectedDistance = useMemo(() => {
     if (!coords || !selected?.latitude || !selected?.longitude)
@@ -431,6 +535,7 @@ export default function HomeScreen() {
           selectedId={selected?.id ?? null}
           onSelect={handleSelect}
           userCoords={coords}
+          userLabel={language === 'fr' ? 'Vous' : 'You'}
           in3D={in3D}
         />
       ) : (
@@ -439,7 +544,7 @@ export default function HomeScreen() {
           contentContainerStyle={{
             paddingHorizontal: 24,
             paddingTop: headerHeight + 16,
-            paddingBottom: tabBarHeight + 90,
+            paddingBottom: searchDockHeight + 24,
           }}
           refreshControl={
             <RefreshControl
@@ -455,7 +560,7 @@ export default function HomeScreen() {
               style={{ color: colors.text, letterSpacing: -0.5 }}
               className="font-body-bold text-2xl"
             >
-              {t.topRated}
+              {nearbyOnly ? t.nearbyOn : t.topRated}
             </Text>
             <Text style={{ color: colors.teal }} className="font-body-medium">
               {visibleAnnonces.length} {t.places}
@@ -504,7 +609,7 @@ export default function HomeScreen() {
                 style={{ color: colors.text }}
                 className="font-body-bold text-lg"
               >
-                {t.empty}
+                {nearbyOnly ? t.noNearby : t.empty}
               </Text>
               <Text
                 style={{ color: colors.textMuted }}
@@ -517,7 +622,7 @@ export default function HomeScreen() {
         </ScrollView>
       )}
 
-      {/* Barre de recherche et catégories, en surimpression sur la carte */}
+      {/* Commandes et catégories, en surimpression sur la carte */}
       <SafeAreaView
         edges={['top']}
         pointerEvents="box-none"
@@ -525,31 +630,48 @@ export default function HomeScreen() {
         onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}
       >
         <View className="px-6 pt-2" pointerEvents="box-none">
-          {/* Barre d'app : la salutation, puis langue et notifications réunies
-              dans une seule capsule pour ne pas éparpiller les commandes. */}
-          <View className="mb-3 flex-row items-center justify-between">
+          {/* Barre d'app : la bascule carte / liste, puis langue et
+              notifications réunies dans une seule capsule. */}
+          <View className="flex-row items-center justify-between">
             <View
               style={{
                 backgroundColor: colors.surface,
                 borderColor: colors.border,
                 ...FloatShadow,
               }}
-              className="mr-3 max-w-[62%] shrink flex-row items-center rounded-full border py-2 pl-3 pr-4"
+              className="flex-row items-center rounded-full border p-1.5"
             >
-              <Text
-                style={{ color: colors.textMuted }}
-                className="font-body text-xs"
-              >
-                {t.hello}{' '}
-              </Text>
-              <Text
-                style={{ color: colors.text }}
-                className="shrink font-body-bold text-xs"
-                numberOfLines={1}
-              >
-                {firstName ?? t.guest}
-              </Text>
-              <Text className="ml-1 text-xs">👋</Text>
+              {(['map', 'list'] as ViewMode[]).map(current => {
+                const isActive = viewMode === current;
+                return (
+                  <TouchableOpacity
+                    key={current}
+                    onPress={() => {
+                      setViewMode(current);
+                      setSelected(null);
+                    }}
+                    style={{
+                      backgroundColor: isActive ? colors.cta : 'transparent',
+                    }}
+                    className="flex-row items-center rounded-full px-4 py-2"
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons
+                      name={current === 'map' ? 'map-outline' : 'list-outline'}
+                      size={17}
+                      color={isActive ? colors.ctaText : colors.textMuted}
+                    />
+                    <Text
+                      style={{
+                        color: isActive ? colors.ctaText : colors.textMuted,
+                      }}
+                      className="ml-2 font-body-bold text-xs"
+                    >
+                      {current === 'map' ? t.map : t.list}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <View
@@ -602,70 +724,6 @@ export default function HomeScreen() {
                 />
               </TouchableOpacity>
             </View>
-          </View>
-
-          <View className="flex-row items-center gap-3">
-            <View
-              style={{
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                ...FloatShadow,
-              }}
-              className="h-14 flex-1 flex-row items-center rounded-full border px-5"
-            >
-              <Ionicons name="search-outline" size={20} color={colors.icon} />
-              <TextInput
-                style={{ color: colors.text }}
-                className="ml-3 h-14 flex-1 font-body"
-                placeholder={t.searchPlaceholder}
-                placeholderTextColor={colors.icon}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                returnKeyType="search"
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity
-                  onPress={() => setSearchQuery('')}
-                  hitSlop={8}
-                >
-                  <Ionicons name="close-circle" size={18} color={colors.icon} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <TouchableOpacity
-              onPress={() => setShowFilters(true)}
-              style={{
-                backgroundColor: colors.cta,
-                ...FloatShadow,
-              }}
-              className="h-14 w-14 items-center justify-center rounded-full"
-              activeOpacity={0.85}
-            >
-              <Ionicons
-                name="options-outline"
-                size={22}
-                color={colors.ctaText}
-              />
-              {/* Compteur : savoir que des filtres sont actifs sans ouvrir le
-                  panneau — sinon une liste filtrée passe pour une liste vide. */}
-              {activeFilterCount > 0 && (
-                <View
-                  style={{
-                    backgroundColor: colors.teal,
-                    borderColor: colors.cta,
-                  }}
-                  className="absolute -right-1 -top-1 h-5 w-5 items-center justify-center rounded-full border-2"
-                >
-                  <Text
-                    style={{ color: colors.textInverse }}
-                    className="font-body-bold text-[10px]"
-                  >
-                    {activeFilterCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -773,18 +831,20 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Commandes de carte */}
-      {viewMode === 'map' && (
+      {/* Commandes flottantes : la 3D ne concerne que la carte, « autour de
+          moi » filtre aussi la liste. */}
+      {!(viewMode === 'map' && selected) && (
         <View
           className="absolute right-6 items-end gap-3"
-          style={{ bottom: tabBarHeight + 88 }}
+          style={{ bottom: searchDockHeight + 16 }}
           pointerEvents="box-none"
         >
-          {floatingButton(
-            in3D ? 'cube' : 'cube-outline',
-            () => setIn3D(value => !value),
-            in3D
-          )}
+          {viewMode === 'map' &&
+            floatingButton(
+              in3D ? 'cube' : 'cube-outline',
+              () => setIn3D(value => !value),
+              in3D
+            )}
           <View className="flex-row items-center justify-end">
             {/* Le rayon ne s'affiche que si le filtre est allumé : il n'a aucun
                 sens quand toute la ville est visible. */}
@@ -829,53 +889,125 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Bascule carte / liste */}
-      <View
-        className="absolute inset-x-0 items-center"
-        style={{ bottom: tabBarHeight + 20 }}
-        pointerEvents="box-none"
-      >
-        <View
-          style={{
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-            ...FloatShadow,
-          }}
-          className="flex-row items-center rounded-full border p-1.5"
+      {/* Message d'accueil et recherche, en bas : à portée de pouce. Masqués
+          quand la fiche d'un lieu remonte, elle occupe le même espace. */}
+      {!(viewMode === 'map' && selected) && (
+        <KeyboardAvoidingView
+          behavior="padding"
+          pointerEvents="box-none"
+          style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end' }]}
         >
-          {(['map', 'list'] as ViewMode[]).map(current => {
-            const isActive = viewMode === current;
-            return (
-              <TouchableOpacity
-                key={current}
-                onPress={() => {
-                  setViewMode(current);
-                  setSelected(null);
-                }}
+          <View
+            className="px-6"
+            pointerEvents="box-none"
+            style={{ paddingBottom: (keyboardVisible ? 0 : tabBarHeight) + 12 }}
+            onLayout={event =>
+              setSearchDockHeight(event.nativeEvent.layout.height)
+            }
+          >
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                ...FloatShadow,
+              }}
+              className="mb-2.5 max-w-[85%] self-start rounded-3xl border px-4 py-2.5"
+            >
+              <Text
+                style={{ color: colors.textMuted }}
+                className="font-body text-xs"
+                numberOfLines={1}
+              >
+                {greeting.hello}
+                {firstName ? ', ' : ' '}
+                {firstName && (
+                  <Text
+                    style={{ color: colors.text }}
+                    className="font-body-bold"
+                  >
+                    {firstName}{' '}
+                  </Text>
+                )}
+                {greeting.emoji}
+              </Text>
+              <Text
+                style={{ color: colors.text }}
+                className="mt-0.5 font-body-bold text-sm"
+              >
+                {greeting.prompt}
+              </Text>
+            </View>
+
+            <View className="flex-row items-center gap-3">
+              <View
                 style={{
-                  backgroundColor: isActive ? colors.cta : 'transparent',
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  ...FloatShadow,
                 }}
-                className="flex-row items-center rounded-full px-5 py-2.5"
+                className="h-14 flex-1 flex-row items-center rounded-full border px-5"
+              >
+                <Ionicons name="search-outline" size={20} color={colors.icon} />
+                <TextInput
+                  style={{ color: colors.text }}
+                  className="ml-3 h-14 flex-1 font-body"
+                  placeholder={t.searchPlaceholder}
+                  placeholderTextColor={colors.icon}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  returnKeyType="search"
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => setSearchQuery('')}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name="close-circle"
+                      size={18}
+                      color={colors.icon}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setShowFilters(true)}
+                style={{
+                  backgroundColor: colors.cta,
+                  ...FloatShadow,
+                }}
+                className="h-14 w-14 items-center justify-center rounded-full"
                 activeOpacity={0.85}
               >
                 <Ionicons
-                  name={current === 'map' ? 'map-outline' : 'list-outline'}
-                  size={17}
-                  color={isActive ? colors.ctaText : colors.textMuted}
+                  name="options-outline"
+                  size={22}
+                  color={colors.ctaText}
                 />
-                <Text
-                  style={{
-                    color: isActive ? colors.ctaText : colors.textMuted,
-                  }}
-                  className="ml-2 font-body-bold text-xs"
-                >
-                  {current === 'map' ? t.map : t.list}
-                </Text>
+                {/* Compteur : savoir que des filtres sont actifs sans ouvrir le
+                    panneau — sinon une liste filtrée passe pour une liste vide. */}
+                {activeFilterCount > 0 && (
+                  <View
+                    style={{
+                      backgroundColor: colors.teal,
+                      borderColor: colors.cta,
+                    }}
+                    className="absolute -right-1 -top-1 h-5 w-5 items-center justify-center rounded-full border-2"
+                  >
+                    <Text
+                      style={{ color: colors.textInverse }}
+                      className="font-body-bold text-[10px]"
+                    >
+                      {activeFilterCount}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      )}
 
       <AnnonceSheet
         annonce={viewMode === 'map' ? selected : null}

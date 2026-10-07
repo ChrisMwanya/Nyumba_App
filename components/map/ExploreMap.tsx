@@ -3,6 +3,7 @@ import React, {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from 'react';
 import { StyleSheet } from 'react-native';
 
@@ -12,6 +13,7 @@ import {
   MAP_STYLE_URL,
   basemapConfig,
 } from '@/constants/map';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Annonce } from '@/services/annonceService';
 import type { Coordinates } from '@/utils/geo';
@@ -19,14 +21,15 @@ import {
   Camera,
   type Camera as CameraRef,
   isMapboxReady,
-  LocationPuck,
   MapView,
   MarkerView,
   StyleImport,
+  UserLocation,
 } from '@/utils/mapbox';
 
 import AnnonceMarker from './AnnonceMarker';
 import MapPlaceholder from './MapPlaceholder';
+import UserMarker from './UserMarker';
 
 export type ExploreMapHandle = {
   /** Centre la caméra sur un point, en gardant l'inclinaison courante. */
@@ -45,13 +48,24 @@ type Props = {
   userCoords: Coordinates | null;
   /** Vue inclinée (bâtiments en relief) ou vue du dessus. */
   in3D: boolean;
+  /** Étiquette posée au-dessus du repère de l'utilisateur. */
+  userLabel?: string;
 };
 
 const ExploreMap = forwardRef<ExploreMapHandle, Props>(function ExploreMap(
-  { annonces, selectedId, onSelect, userCoords, in3D },
+  { annonces, selectedId, onSelect, userCoords, in3D, userLabel = 'Vous' },
   ref
 ) {
-  const { colors, isDark } = useTheme();
+  const { isDark } = useTheme();
+  const { user } = useAuth();
+  // `userCoords` est un relevé ponctuel : le repère suit plutôt la position
+  // en direct du SDK, pour accompagner l'utilisateur quand il se déplace.
+  const [livePosition, setLivePosition] = useState<[number, number] | null>(
+    null
+  );
+  const userPosition =
+    livePosition ??
+    (userCoords ? [userCoords.longitude, userCoords.latitude] : null);
   const camera = useRef<CameraRef>(null);
   // La caméra ne se recale automatiquement qu'au premier point GPS reçu :
   // ensuite, c'est l'utilisateur qui décide où regarder.
@@ -151,10 +165,15 @@ const ExploreMap = forwardRef<ExploreMapHandle, Props>(function ExploreMap(
       />
 
       {userCoords && (
-        <LocationPuck
-          puckBearing="heading"
-          puckBearingEnabled
-          pulsing={{ isEnabled: true, color: colors.teal, radius: 'accuracy' }}
+        <UserLocation
+          visible={false}
+          minDisplacement={5}
+          onUpdate={location =>
+            setLivePosition([
+              location.coords.longitude,
+              location.coords.latitude,
+            ])
+          }
         />
       )}
 
@@ -177,6 +196,18 @@ const ExploreMap = forwardRef<ExploreMapHandle, Props>(function ExploreMap(
           </MarkerView>
         );
       })}
+
+      {/* Déclaré en dernier pour rester au-dessus des épingles d'annonces. */}
+      {userPosition && (
+        <MarkerView
+          id="user-position"
+          coordinate={userPosition}
+          anchor={{ x: 0.5, y: 1 }}
+          allowOverlap
+        >
+          <UserMarker avatarUrl={user?.avatarUrl} label={userLabel} />
+        </MarkerView>
+      )}
     </MapView>
   );
 });

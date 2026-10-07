@@ -1,4 +1,4 @@
-import { ApiError } from '@/services/api';
+import { ApiError, setSessionRefresher } from '@/services/api';
 import type {
   AuthTokens,
   AuthUser,
@@ -82,9 +82,27 @@ async function clearTokens() {
   await SecureStore.deleteItemAsync(SECURE_KEYS.REFRESH_TOKEN);
 }
 
+// Le refresh token est refusé par l'API (expiré, compte désactivé, mot de passe
+// changé ailleurs) : seule une reconnexion peut rouvrir la session. Une panne
+// réseau ou serveur, elle, ne doit pas faire perdre les jetons.
+function isSessionRejected(error: unknown) {
+  return (
+    error instanceof ApiError && (error.status === 401 || error.status === 403)
+  );
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [accessToken, setAccessTokenState] = useState<string | null>(null);
+  // Copie synchrone du jeton courant : le renouvellement est déclenché depuis
+  // le client API, hors du cycle de rendu.
+  const accessTokenRef = useRef<string | null>(null);
+  const refreshInFlight = useRef<Promise<string | null> | null>(null);
+
+  const setAccessToken = useCallback((token: string | null) => {
+    accessTokenRef.current = token;
+    setAccessTokenState(token);
+  }, []);
   const [pendingVerification, setPendingVerificationState] =
     useState<PendingVerification | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,6 +114,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     identifier: string;
     password: string;
   } | null>(null);
+
+  const endSession = useCallback(async () => {
+    await clearTokens();
+    await savePendingVerification(null);
+    credentialsRef.current = null;
+    setAccessToken(null);
+    setUser(null);
+    setPendingVerificationState(null);
+  }, [setAccessToken]);
+
+  // Appelé par le client API quand une requête authentifiée reçoit un 401.
+  // Rend le nouvel access token, ou `null` si la session est terminée (le
+  // layout racine renvoie alors vers la connexion).
+  const refreshSession = useCallback(
+    (staleToken: string): Promise<string | null> => {
+      // Jeton déjà renouvelé par une requête concurrente : il suffit de rejouer.
+      const current = accessTokenRef.current;
+      if (current && current !== staleToken) return Promise.resolve(current);
+
+      // Un seul renouvellement à la fois, partagé par les requêtes en attente.
+      refreshInFlight.current ??= (async () => {
+        try {
+          const savedRefresh = await SecureStore.getItemAsync(
+            SECURE_KEYS.REFRESH_TOKEN
+          );
+          if (!savedRefresh) {
+            await endSession();
+            return null;
+          }
+          const { tokens } = await authService.refreshToken(savedRefresh);
+          await saveTokens(tokens);
+          setAccessToken(tokens.accessToken);
+          return tokens.accessToken;
+        } catch (error) {
+          if (!isSessionRejected(error)) throw error;
+          await endSession();
+          return null;
+        } finally {
+          refreshInFlight.current = null;
+        }
+      })();
+      return refreshInFlight.current;
+    },
+    [endSession, setAccessToken]
+  );
+
+  // Branché avant le chargement de la session (effet déclaré plus bas) pour
+  // que le tout premier appel profite déjà du renouvellement.
+  useEffect(() => {
+    setSessionRefresher(refreshSession);
+    return () => setSessionRefresher(null);
+  }, [refreshSession]);
 
   // Charger la session persistée au démarrage
   useEffect(() => {
@@ -111,25 +181,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const saved = await SecureStore.getItemAsync(SECURE_KEYS.ACCESS_TOKEN);
         if (saved) {
+          // Si l'access token a expiré, le client API renouvelle la session
+          // (refreshSession) et rejoue l'appel de lui-même.
+          accessTokenRef.current = saved;
           const me = await authService.getMe(saved);
-          setAccessToken(saved);
+          setAccessTokenState(accessTokenRef.current);
           setUser(me);
         }
-      } catch {
-        try {
-          const savedRefresh = await SecureStore.getItemAsync(
-            SECURE_KEYS.REFRESH_TOKEN
-          );
-          if (savedRefresh) {
-            const { tokens } = await authService.refreshToken(savedRefresh);
-            await saveTokens(tokens);
-            const me = await authService.getMe(tokens.accessToken);
-            setAccessToken(tokens.accessToken);
-            setUser(me);
-          }
-        } catch {
-          await clearTokens();
-        }
+      } catch (error) {
+        accessTokenRef.current = null;
+        if (isSessionRejected(error)) await clearTokens();
       } finally {
         setIsLoading(false);
       }
@@ -159,7 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(me);
       // La redirection (onboarding ou accueil) est faite par le layout racine
     },
-    [setPendingVerification]
+    [setAccessToken, setPendingVerification]
   );
 
   const goToOtp = useCallback(
@@ -233,10 +294,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Après un changement de mot de passe, l'API invalide toutes les sessions et
   // rend des jetons neufs : sans cette adoption, la requête suivante de cet
   // appareil serait rejetée et l'utilisateur se retrouverait déconnecté.
-  const applyTokens = useCallback(async (tokens: AuthTokens) => {
-    await saveTokens(tokens);
-    setAccessToken(tokens.accessToken);
-  }, []);
+  const applyTokens = useCallback(
+    async (tokens: AuthTokens) => {
+      await saveTokens(tokens);
+      setAccessToken(tokens.accessToken);
+    },
+    [setAccessToken]
+  );
 
   const signOut = useCallback(async () => {
     if (accessToken) {
@@ -246,14 +310,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Ignorer les erreurs de déconnexion réseau
       }
     }
-    await clearTokens();
-    await savePendingVerification(null);
-    credentialsRef.current = null;
-    setAccessToken(null);
-    setUser(null);
-    setPendingVerificationState(null);
+    await endSession();
     router.replace('/(auth)/login' as any);
-  }, [accessToken]);
+  }, [accessToken, endSession]);
 
   return (
     <AuthContext.Provider

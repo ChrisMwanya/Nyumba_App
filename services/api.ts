@@ -42,25 +42,54 @@ function toApiError(status: number, raw: any): ApiError {
   return new ApiError(status, errors, message);
 }
 
+// Renouvelle la session à partir du refresh token et rend le nouvel access
+// token, ou `null` si la session est terminée. Fourni par l'AuthContext, qui
+// détient les jetons : ce module reste sans état.
+type SessionRefresher = (staleToken: string) => Promise<string | null>;
+
+let sessionRefresher: SessionRefresher | null = null;
+
+export function setSessionRefresher(refresher: SessionRefresher | null) {
+  sessionRefresher = refresher;
+}
+
+// Un 401 sur une requête authentifiée signifie le plus souvent que l'access
+// token a expiré : on renouvelle la session puis on rejoue la requête une
+// seule fois, pour que l'utilisateur n'ait pas à se reconnecter.
+async function fetchWithRefresh(
+  path: string,
+  token: string | undefined,
+  init: (token?: string) => RequestInit
+): Promise<Response> {
+  const response = await fetch(`${BASE_URL}${path}`, init(token));
+  if (response.status !== 401 || !token || !sessionRefresher) return response;
+
+  const freshToken = await sessionRefresher(token);
+  if (!freshToken) return response;
+  return fetch(`${BASE_URL}${path}`, init(freshToken));
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<T> {
   const { method = 'GET', body, token } = options;
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  };
+  const response = await fetchWithRefresh(path, token, currentToken => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+    if (currentToken) {
+      headers['Authorization'] = `Bearer ${currentToken}`;
+    }
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
+    return {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    };
   });
 
   const raw = await response.json().catch(() => ({}));
@@ -82,18 +111,16 @@ export async function apiRequestMultipart<T>(
   formData: FormData,
   token?: string
 ): Promise<T> {
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-  };
+  const response = await fetchWithRefresh(path, token, currentToken => {
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+    };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+    if (currentToken) {
+      headers['Authorization'] = `Bearer ${currentToken}`;
+    }
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    method: 'POST',
-    headers,
-    body: formData,
+    return { method: 'POST', headers, body: formData };
   });
 
   const raw = await response.json().catch(() => ({}));
