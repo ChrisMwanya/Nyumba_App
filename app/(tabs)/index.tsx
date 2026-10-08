@@ -472,6 +472,8 @@ export default function HomeScreen() {
     });
   }, []);
 
+  const locationDenied = permission === 'denied';
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchData();
@@ -494,9 +496,7 @@ export default function HomeScreen() {
   const floatingButton = (
     icon: React.ComponentProps<typeof Ionicons>['name'],
     onPress: () => void,
-    active = false,
-    /** Pastille d'alerte : signale que le bouton demande une intervention. */
-    warn = false
+    active = false
   ) => (
     <TouchableOpacity
       onPress={onPress}
@@ -511,17 +511,8 @@ export default function HomeScreen() {
       <Ionicons
         name={icon}
         size={20}
-        color={active ? colors.ctaText : warn ? colors.warning : colors.text}
+        color={active ? colors.ctaText : colors.text}
       />
-      {warn && (
-        <View
-          style={{
-            backgroundColor: colors.warning,
-            borderColor: colors.surface,
-          }}
-          className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2"
-        />
-      )}
     </TouchableOpacity>
   );
 
@@ -879,12 +870,50 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
 
-            {floatingButton(
-              permission === 'denied' ? 'location-outline' : 'locate',
-              toggleNearby,
-              nearbyOnly,
-              permission === 'denied'
-            )}
+            {/* Libellé en toutes lettres : une icône seule ne disait pas que
+                le bouton filtre les lieux proches. */}
+            <TouchableOpacity
+              onPress={toggleNearby}
+              activeOpacity={0.85}
+              style={{
+                backgroundColor: nearbyOnly ? colors.cta : colors.surface,
+                borderColor: nearbyOnly ? colors.cta : colors.border,
+                ...FloatShadow,
+              }}
+              className="h-12 flex-row items-center rounded-full border pl-3.5 pr-4"
+              accessibilityRole="button"
+              accessibilityState={{ selected: nearbyOnly }}
+              accessibilityLabel={t.nearbyOn}
+            >
+              <Ionicons
+                name={locationDenied ? 'location-outline' : 'locate'}
+                size={18}
+                color={
+                  nearbyOnly
+                    ? colors.ctaText
+                    : locationDenied
+                      ? colors.warning
+                      : colors.text
+                }
+              />
+              <Text
+                style={{ color: nearbyOnly ? colors.ctaText : colors.text }}
+                className="ml-2 font-body-bold text-xs"
+              >
+                {t.nearbyOn}
+              </Text>
+              {/* Pastille d'alerte : la position est refusée, le bouton
+                  renvoie vers les réglages. */}
+              {locationDenied && (
+                <View
+                  style={{
+                    backgroundColor: colors.warning,
+                    borderColor: colors.surface,
+                  }}
+                  className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2"
+                />
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       )}
