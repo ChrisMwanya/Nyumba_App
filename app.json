@@ -1,39 +1,33 @@
 {
   "expo": {
-    "name": "nyumba_mobile",
+    "name": "Nyumba",
     "slug": "nyumba",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/ios-light.png",
     "scheme": "nyumbamobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "icon": {
+        "light": "./assets/images/ios-light.png",
+        "dark": "./assets/images/ios-dark.png"
+      },
       "bundleIdentifier": "com.anonymous.nyumba-mobile",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Nyumba utilise votre position pour afficher sur la carte les bons coins autour de vous et calculer vos itinéraires."
       }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/images/splash-icon-dark.png",
+        "monochromeImage": "./assets/images/splash-icon-dark.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "splash": {
-        "image": "./assets/images/splash-icon-dark.png",
-        "imageWidth": 200,
-        "resizeMode": "contain",
-        "backgroundColor": "#ffffff",
-        "dark": {
-          "image": "./assets/images/splash-icon-light.png",
-          "backgroundColor": "#000000"
-        }
-      },
       "package": "com.chrismwanya.nyumba"
     },
     "web": {
@@ -48,28 +42,35 @@
           "ios": {
             "image": "./assets/images/splash-icon-dark.png",
             "imageWidth": 200,
-            "resizeMode": "cover",
+            "resizeMode": "contain",
             "backgroundColor": "#ffffff",
             "dark": {
               "image": "./assets/images/splash-icon-light.png",
-              "backgroundColor": "#000000"
+              "backgroundColor": "#0D1322"
             }
           },
           "android": {
             "image": "./assets/images/splash-icon-dark.png",
             "imageWidth": 200,
-            "resizeMode": "cover",
+            "resizeMode": "contain",
             "backgroundColor": "#ffffff",
             "dark": {
               "image": "./assets/images/splash-icon-light.png",
-              "backgroundColor": "#000000"
+              "backgroundColor": "#0D1322"
             }
           }
         }
       ],
       "expo-font",
       "expo-secure-store",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Nyumba utilise votre position pour afficher sur la carte les bons coins autour de vous et calculer vos itinéraires."
+        }
+      ],
+      "@rnmapbox/maps"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -25,7 +25,7 @@ export default function TabsLayout() {
           elevation: 0,
         },
         tabBarLabelStyle: {
-          fontFamily: 'Montserrat_500Medium',
+          fontFamily: 'GoogleSans_500Medium',
           fontSize: 10,
           marginTop: 4,
         },
@@ -36,25 +36,24 @@ export default function TabsLayout() {
         options={{
           title: 'Accueil',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "home" : "home-outline"} size={22} color={color} />
+            <Ionicons
+              name={focused ? 'home' : 'home-outline'}
+              size={22}
+              color={color}
+            />
           ),
         }}
       />
       <Tabs.Screen
-        name="annonces"
+        name="favoris"
         options={{
-          title: 'Annonces',
+          title: 'Favoris',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "list" : "list-outline"} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="reservations"
-        options={{
-          title: 'Réservations',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "calendar" : "calendar-outline"} size={22} color={color} />
+            <Ionicons
+              name={focused ? 'heart' : 'heart-outline'}
+              size={22}
+              color={color}
+            />
           ),
         }}
       />
@@ -63,7 +62,11 @@ export default function TabsLayout() {
         options={{
           title: 'Profil',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "person-circle" : "person-circle-outline"} size={22} color={color} />
+            <Ionicons
+              name={focused ? 'person-circle' : 'person-circle-outline'}
+              size={22}
+              color={color}
+            />
           ),
         }}
       />

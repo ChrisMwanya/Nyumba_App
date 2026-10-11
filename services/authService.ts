@@ -1,74 +1,63 @@
-import { apiRequest, apiRequestMultipart } from './api';
+import { apiRequest } from './api';
 
+// Profil renvoyé par GET /api/users/me
 export type AuthUser = {
-  id: number;
-  firstName?: string;
-  lastName?: string;
+  id: string;
   fullName: string;
-  email?: string;
-  phone?: string;
-  language?: string;
-  profilePicture?: string;
-  status: 'en_attente' | 'active' | 'suspendu';
-  initials?: string;
-  createdAt: string;
-  updatedAt: string;
+  email?: string | null;
+  phone?: string | null;
+  /** Photo de profil hébergée sur Cloudinary. */
+  avatarUrl?: string | null;
+  role: string;
+  isVerified?: boolean;
+  createdAt?: string;
 };
 
-export type TokenInfo = {
-  value: string;
-  expiresAt: string;
-  expiresIn: number;
+/** Paramètres signés par l'API pour téléverser directement sur Cloudinary. */
+export type UploadSignature = {
+  cloudName: string;
+  apiKey: string;
+  folder: string;
+  timestamp: number;
+  signature: string;
 };
 
+export type AuthTokens = {
+  accessToken: string;
+  refreshToken: string;
+};
+
+// Réponse de POST /auth/login et /auth/refresh : le user ne contient que id/role/fullName
 export type LoginResponse = {
-  user: AuthUser;
-  token: TokenInfo;
+  user: Pick<AuthUser, 'id' | 'role' | 'fullName'>;
+  tokens: AuthTokens;
 };
+
+export type RefreshResponse = LoginResponse;
 
 // Réponse de POST /auth/signup
-export type SignupUser = {
-  id: number;
-  fullName: string | null;
-  email?: string;
-  phone?: string;
-  status: string;
-  createdAt: string;
-};
-
 export type SignupResponse = {
   message: string;
-  user: SignupUser;
-  verificationMethod: 'email' | 'sms';
-  destination: string;
+  userId: string;
 };
 
-// Réponse de POST /auth/verify-otp
-export type VerifyOtpResponse = {
-  token: TokenInfo;
-  user: AuthUser;
-};
-
-export type RefreshResponse = {
-  token: TokenInfo;
-  user: AuthUser;
-};
-
-// POST /api/v1/auth/login
-export function login(uid: string, password: string): Promise<LoginResponse> {
+// POST /api/auth/login — identifier : email ou téléphone (0812345678 ou +243812345678)
+export function login(
+  identifier: string,
+  password: string
+): Promise<LoginResponse> {
   return apiRequest<LoginResponse>('/auth/login', {
     method: 'POST',
-    body: { email: uid, password },
+    body: { identifier, password },
   });
 }
 
-// POST /api/v1/auth/signup
+// POST /api/auth/signup — email ou phone requis ; l'OTP part par email si fourni, par SMS sinon
 export function signup(payload: {
   fullName: string;
-  email: string;
+  email?: string;
   phone?: string;
   password: string;
-  passwordConfirmation: string;
 }): Promise<SignupResponse> {
   return apiRequest<SignupResponse>('/auth/signup', {
     method: 'POST',
@@ -76,110 +65,121 @@ export function signup(payload: {
   });
 }
 
-// POST /api/v1/auth/refresh (🔒 Auth Requise)
-export function refreshToken(accessToken: string): Promise<RefreshResponse> {
+// POST /api/auth/refresh — renouvelle aussi le refresh token
+export function refreshToken(refreshToken: string): Promise<RefreshResponse> {
   return apiRequest<RefreshResponse>('/auth/refresh', {
     method: 'POST',
-    token: accessToken,
+    body: { refreshToken },
   });
 }
 
-// POST /api/v1/account/logout
+// POST /api/auth/logout (🔒 Auth Requise)
 export function logout(accessToken: string): Promise<{ message: string }> {
-  return apiRequest('/account/logout', {
+  return apiRequest('/auth/logout', {
     method: 'POST',
     token: accessToken,
   });
 }
 
-// GET /api/v1/account/profile — retourne le user directement (pas wrappé dans {user})
+// GET /api/users/me (🔒 Auth Requise)
 export function getMe(accessToken: string): Promise<AuthUser> {
-  return apiRequest<AuthUser>('/account/profile', {
+  return apiRequest<AuthUser>('/users/me', {
     method: 'GET',
     token: accessToken,
   });
 }
 
-// PUT /api/v1/account/profile
+// PATCH /api/users/me — nom et téléphone. L'email reste l'identifiant de
+// connexion et n'est pas modifiable ; les autres champs (rôle, vérification)
+// sont rejetés par l'API pour fermer les affectations en masse.
 export function updateProfile(
   accessToken: string,
-  payload: { 
-    firstName?: string;
-    lastName?: string;
-    fullName?: string; 
-    email?: string;
-    phone?: string;
-    language?: string;
-  }
-): Promise<{ message: string; user: AuthUser }> {
-  return apiRequest('/account/profile', {
+  payload: { fullName?: string; phone?: string | null }
+): Promise<AuthUser> {
+  return apiRequest<AuthUser>('/users/me', {
+    method: 'PATCH',
+    token: accessToken,
+    body: payload,
+  });
+}
+
+// POST /api/users/me/avatar/signature — 503 si Cloudinary n'est pas configuré.
+export function getAvatarUploadSignature(
+  accessToken: string
+): Promise<UploadSignature> {
+  return apiRequest<UploadSignature>('/users/me/avatar/signature', {
+    method: 'POST',
+    token: accessToken,
+  });
+}
+
+// PUT /api/users/me/avatar — le fichier est déjà sur Cloudinary, on n'envoie
+// que sa référence.
+export function setAvatar(
+  accessToken: string,
+  payload: { url: string; publicId: string }
+): Promise<AuthUser> {
+  return apiRequest<AuthUser>('/users/me/avatar', {
     method: 'PUT',
     token: accessToken,
     body: payload,
   });
 }
 
-// POST /api/v1/account/profile/picture
-export function updateProfilePicture(
-  accessToken: string,
-  imageUri: string
-): Promise<{ message: string; user: AuthUser }> {
-  const formData = new FormData();
-  
-  // Extract filename and type from URI if possible, or use defaults
-  const filename = imageUri.split('/').pop() || 'profile.jpg';
-  const match = /\.(\w+)$/.exec(filename);
-  const type = match ? `image/${match[1]}` : `image/jpeg`;
-
-  formData.append('profilePicture', {
-    uri: imageUri,
-    name: filename,
-    type,
-  } as any);
-
-  return apiRequestMultipart('/account/profile/picture', formData, accessToken);
-}
-
-// PUT /api/v1/auth/profile/password
-export function changePassword(
-  accessToken: string,
-  payload: { currentPassword: string; password: string; passwordConfirmation: string }
-): Promise<{ message: string }> {
-  return apiRequest('/auth/profile/password', {
-    method: 'PUT',
-    token: accessToken,
-    body: payload,
-  });
-}
-
-// DELETE /api/v1/auth/delete-account
-export function deleteAccount(accessToken: string): Promise<{ message: string }> {
-  return apiRequest('/auth/delete-account', {
+// DELETE /api/users/me/avatar
+export function removeAvatar(accessToken: string): Promise<AuthUser> {
+  return apiRequest<AuthUser>('/users/me/avatar', {
     method: 'DELETE',
     token: accessToken,
   });
 }
 
-// POST /api/v1/auth/forgot-password
-export function forgotPassword(
-  identifier: string,
-  type: 'email' | 'phone' = 'email'
-): Promise<{ message: string }> {
-  const body = type === 'email' ? { email: identifier } : { phone: identifier };
-  return apiRequest('/auth/forgot-password', {
-    method: 'POST',
-    body,
+// PUT /api/users/me/password — le mot de passe actuel est exigé par l'API :
+// un jeton volé ne doit pas suffire à verrouiller le compte de son
+// propriétaire. La confirmation de saisie est vérifiée côté app.
+//
+// L'API invalide au passage toutes les sessions et renvoie un couple de jetons
+// neufs pour l'appareil appelant : ils doivent être adoptés (`applyTokens`),
+// sinon l'utilisateur se déconnecte lui-même en changeant son mot de passe.
+export function changePassword(
+  accessToken: string,
+  payload: { currentPassword: string; newPassword: string }
+): Promise<{ message: string; tokens: AuthTokens }> {
+  return apiRequest('/users/me/password', {
+    method: 'PUT',
+    token: accessToken,
+    body: payload,
   });
 }
 
-// POST /api/v1/auth/reset-password
-// L'API attend { email | phone, code, password, passwordConfirmation }
+// DELETE /api/users/me — suppression définitive. Le mot de passe est redemandé
+// par l'API : un appareil déverrouillé ne suffit pas à détruire un compte.
+export function deleteAccount(
+  accessToken: string,
+  password: string
+): Promise<{ message: string }> {
+  return apiRequest('/users/me', {
+    method: 'DELETE',
+    token: accessToken,
+    body: { password },
+  });
+}
+
+// POST /api/auth/forgot-password — code par SMS si l'identifiant est un numéro, par email sinon
+export function forgotPassword(
+  identifier: string
+): Promise<{ message: string }> {
+  return apiRequest('/auth/forgot-password', {
+    method: 'POST',
+    body: { identifier },
+  });
+}
+
+// POST /api/auth/reset-password
 export function resetPassword(payload: {
-  email?: string;
-  phone?: string;
-  code: string;
-  password: string;
-  passwordConfirmation: string;
+  identifier: string;
+  otp: string;
+  newPassword: string;
 }): Promise<{ message: string }> {
   return apiRequest('/auth/reset-password', {
     method: 'POST',
@@ -187,32 +187,21 @@ export function resetPassword(payload: {
   });
 }
 
-// POST /api/v1/auth/verify-otp
-// L'API attend { email, code } ou { phone, code }
+// POST /api/auth/verify-otp — active le compte, ne renvoie pas de token
 export function verifyOtp(
   identifier: string,
-  otp: string,
-  type: 'email' | 'sms'
-): Promise<VerifyOtpResponse> {
-  const body = type === 'email'
-    ? { email: identifier, code: otp }
-    : { phone: identifier, code: otp };
-  return apiRequest<VerifyOtpResponse>('/auth/verify-otp', {
+  otp: string
+): Promise<{ message: string }> {
+  return apiRequest('/auth/verify-otp', {
     method: 'POST',
-    body,
+    body: { identifier, otp },
   });
 }
 
-// POST /api/v1/auth/resend-otp
-export function resendOtp(
-  identifier: string,
-  type: 'email' | 'sms'
-): Promise<{ message: string }> {
-  const body = type === 'email'
-    ? { email: identifier }
-    : { phone: identifier };
+// POST /api/auth/resend-otp
+export function resendOtp(identifier: string): Promise<{ message: string }> {
   return apiRequest('/auth/resend-otp', {
     method: 'POST',
-    body,
+    body: { identifier },
   });
 }
