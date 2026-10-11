@@ -588,22 +588,6 @@ export default function ProfileScreen() {
             })}
             {row('lock-closed-outline', 'Mot de passe', {
               onPress: () => setPasswordVisible(true),
-            })}
-            {row('notifications-outline', 'Notifications', { soon: true })}
-            {row('card-outline', 'Moyens de paiement', {
-              soon: true,
-              last: true,
-            })}
-          </>
-        )}
-
-        {/* --- Aide --- */}
-        {sectionTitle('Aide')}
-        {card(
-          <>
-            {row('help-circle-outline', 'Aide & FAQ', { soon: true })}
-            {row('headset-outline', 'Contacter le support', {
-              soon: true,
               last: true,
             })}
           </>

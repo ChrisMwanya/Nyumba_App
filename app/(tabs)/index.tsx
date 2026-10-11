@@ -630,8 +630,7 @@ export default function HomeScreen() {
         onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}
       >
         <View className="px-6 pt-2" pointerEvents="box-none">
-          {/* Barre d'app : la bascule carte / liste, puis langue et
-              notifications réunies dans une seule capsule. */}
+          {/* Barre d'app : la bascule carte / liste, puis la langue. */}
           <View className="flex-row items-center justify-between">
             <View
               style={{
@@ -697,31 +696,6 @@ export default function HomeScreen() {
                 >
                   {language.toUpperCase()}
                 </Text>
-              </TouchableOpacity>
-
-              <View
-                style={{ backgroundColor: colors.border }}
-                className="h-5 w-[1px]"
-              />
-
-              <TouchableOpacity
-                className="h-10 w-11 items-center justify-center"
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel="Notifications"
-              >
-                <Ionicons
-                  name="notifications-outline"
-                  size={19}
-                  color={colors.text}
-                />
-                <View
-                  style={{
-                    backgroundColor: colors.teal,
-                    borderColor: colors.surface,
-                  }}
-                  className="absolute right-2.5 top-2 h-2 w-2 rounded-full border-2"
-                />
               </TouchableOpacity>
             </View>
           </View>
