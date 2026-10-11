@@ -99,7 +99,7 @@ export default function LoginScreen() {
             style={{ color: colors.textMuted }}
             className="mb-8 font-body text-sm"
           >
-            Connectez-vous pour retrouver vos adresses et vos réservations.
+            Connectez-vous pour retrouver vos adresses et vos favoris.
           </Text>
 
           {/* Erreur globale */}

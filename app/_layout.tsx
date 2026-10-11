@@ -97,36 +97,6 @@ function AppNavigator() {
               options={{ headerShown: false, presentation: 'card' }}
             />
             <Stack.Screen
-              name="annonces/booking"
-              options={{
-                title: 'Réservation',
-                presentation: 'modal',
-                headerStyle: { backgroundColor: colors.bg },
-                headerTintColor: colors.text,
-                headerTitleStyle: {
-                  fontFamily: 'GoogleSans_700Bold',
-                  fontSize: 17,
-                },
-                headerShadowVisible: false,
-                headerBackTitle: '',
-              }}
-            />
-            <Stack.Screen
-              name="annonces/payment"
-              options={{
-                title: 'Confirmation',
-                presentation: 'card',
-                headerStyle: { backgroundColor: colors.bg },
-                headerTintColor: colors.text,
-                headerTitleStyle: {
-                  fontFamily: 'GoogleSans_700Bold',
-                  fontSize: 17,
-                },
-                headerShadowVisible: false,
-                headerBackTitle: '',
-              }}
-            />
-            <Stack.Screen
               name="annonces/directions"
               options={{ headerShown: false, presentation: 'modal' }}
             />

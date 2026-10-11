@@ -889,8 +889,8 @@ export default function ProfileScreen() {
                 style={{ color: colors.textSecondary }}
                 className="mt-2 font-body text-xs leading-5"
               >
-                Votre compte, vos réservations, vos avis et vos favoris seront
-                supprimés. Il n&apos;est pas possible de les récupérer ensuite.
+                Votre compte, vos avis et vos favoris seront supprimés. Il
+                n&apos;est pas possible de les récupérer ensuite.
               </Text>
             </View>
 

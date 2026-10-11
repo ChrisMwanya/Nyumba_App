@@ -27,6 +27,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import {
   getAnnonceById,
   getMyReview,
+  getPriceLabel,
   rateListing,
   Annonce,
   CategoryAttribute,
@@ -43,15 +44,6 @@ import { distanceKm, formatDistance } from '@/utils/geo';
 
 const { width } = Dimensions.get('window');
 
-/** Only these category slugs allow reservations */
-const BOOKABLE_CATEGORIES = new Set([
-  'hotel',
-  'hotels',
-  'airbnbs',
-  'restaurant',
-  'restaurants',
-]);
-
 // Pastilles d'aplat des caractéristiques principales
 const FEATURE_TILES = [Tiles.mint, Tiles.lilac, Tiles.sky];
 
@@ -60,7 +52,6 @@ export default function AnnonceDetailsScreen() {
   const { colors } = useTheme();
   const [annonce, setAnnonce] = useState<Annonce | null>(null);
   const [loading, setLoading] = useState(true);
-  const [booking, setBooking] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [attributeDefs, setAttributeDefs] = useState<CategoryAttribute[]>([]);
   const [rating, setRating] = useState<ListingRating | null>(null);
@@ -129,18 +120,6 @@ export default function AnnonceDetailsScreen() {
     }
   };
 
-  const handleBooking = () => {
-    if (!annonce) return;
-    router.push({
-      pathname: '/annonces/booking',
-      params: {
-        id: annonce.id,
-        title: annonce.title,
-        image: images[0]?.url,
-      },
-    } as any);
-  };
-
   if (loading) {
     return (
       <View
@@ -158,6 +137,8 @@ export default function AnnonceDetailsScreen() {
 
   if (!annonce) return null;
 
+  const priceLabel = getPriceLabel(annonce);
+
   const images =
     annonce.images && annonce.images.length > 0
       ? annonce.images
@@ -166,8 +147,6 @@ export default function AnnonceDetailsScreen() {
             url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800',
           },
         ];
-
-  const isBookable = BOOKABLE_CATEGORIES.has(annonce.category?.slug || '');
 
   const hasCoordinates =
     annonce.latitude !== undefined && annonce.longitude !== undefined;
@@ -212,7 +191,7 @@ export default function AnnonceDetailsScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: isBookable ? 120 : 40 }}
+        contentContainerStyle={{ paddingBottom: hasCoordinates ? 120 : 40 }}
       >
         {/* Image Gallery */}
         <View className="relative">
@@ -316,13 +295,13 @@ export default function AnnonceDetailsScreen() {
                 </Text>
               </View>
             )}
-            {/* Gamme de prix (l'API ne fournit pas de tarif chiffré) */}
-            {annonce.priceRange && (
+            {/* Budget par personne, ou à défaut la gamme de prix libre */}
+            {priceLabel && (
               <Text
                 style={{ color: colors.text }}
                 className="font-body-bold text-2xl"
               >
-                {annonce.priceRange}
+                {priceLabel}
               </Text>
             )}
           </View>
@@ -497,32 +476,6 @@ export default function AnnonceDetailsScreen() {
                 </>
               )}
             </View>
-
-            {hasCoordinates && (
-              <TouchableOpacity
-                onPress={() =>
-                  openDirections(
-                    annonce.latitude!,
-                    annonce.longitude!,
-                    annonce.title
-                  )
-                }
-                style={{ borderColor: colors.input }}
-                className="h-14 flex-row items-center justify-center rounded-full border"
-              >
-                <Ionicons
-                  name="navigate-outline"
-                  size={20}
-                  color={colors.text}
-                />
-                <Text
-                  style={{ color: colors.text }}
-                  className="ml-2 font-body-semibold"
-                >
-                  Obtenir l&apos;itinéraire
-                </Text>
-              </TouchableOpacity>
-            )}
           </View>
           {/* Note de l'utilisateur : une seule ligne, en fin de fiche */}
           <View
@@ -589,34 +542,41 @@ export default function AnnonceDetailsScreen() {
         </View>
       </ScrollView>
 
-      {/* Floating Footer Button — only for bookable categories */}
-      {isBookable && (
+      {/* Action principale : l'itinéraire. Sans coordonnées, rien à tracer. */}
+      {hasCoordinates && (
         <View
           style={{ backgroundColor: colors.bg, borderTopColor: colors.border }}
           className="absolute bottom-0 left-0 right-0 border-t px-6 pb-8 pt-4"
         >
           <View className="flex-row items-center justify-between">
             <View className="mr-4 shrink">
-              {annonce.priceRange ? (
+              {priceLabel ? (
                 <Text
                   style={{ color: colors.text }}
                   className="font-body-bold text-xl"
                 >
-                  {annonce.priceRange}
+                  {priceLabel}
                 </Text>
               ) : null}
               <Text
                 style={{ color: colors.textMuted }}
                 className="font-body text-xs"
               >
-                {annonce.category?.name || 'Réservation'}
+                {readableDistance
+                  ? `À ${readableDistance} de vous`
+                  : annonce.category?.name}
               </Text>
             </View>
             <Button
-              title="Réserver"
-              icon="calendar-outline"
-              onPress={handleBooking}
-              loading={booking}
+              title="Itinéraire"
+              icon="navigate-outline"
+              onPress={() =>
+                openDirections(
+                  annonce.latitude!,
+                  annonce.longitude!,
+                  annonce.title
+                )
+              }
               className="px-8"
             />
           </View>

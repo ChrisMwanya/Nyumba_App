@@ -24,7 +24,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BottomSheet from '@/components/BottomSheet';
 import MapPlaceholder from '@/components/map/MapPlaceholder';
+import UserMarker from '@/components/map/UserMarker';
 import { CAMERA, MAP_STYLE_URL, basemapConfig } from '@/constants/map';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { distanceKm } from '@/utils/geo';
 import {
@@ -42,7 +44,6 @@ import {
   type Camera as CameraRef,
   isMapboxReady,
   LineLayer,
-  LocationPuck,
   MapView,
   MarkerView,
   ShapeSource,
@@ -62,6 +63,7 @@ const LABELS = {
   fr: {
     modes: { car: 'Voiture', pedestrian: 'À pied', bicycle: 'Vélo' },
     towards: 'Itinéraire vers',
+    you: 'Vous',
     computing: "Calcul de l'itinéraire…",
     arrival: 'Arrivée',
     traffic: 'de trafic',
@@ -82,6 +84,7 @@ const LABELS = {
   en: {
     modes: { car: 'Car', pedestrian: 'Walk', bicycle: 'Bike' },
     towards: 'Directions to',
+    you: 'You',
     computing: 'Calculating route…',
     arrival: 'Arrival',
     traffic: 'of traffic',
@@ -120,6 +123,10 @@ export default function DirectionsScreen() {
 
   const [mode, setMode] = useState<TravelMode>('car');
   const [origin, setOrigin] = useState<Coordinates | null>(null);
+  // Position suivie en direct, distincte de `origin` : le repère avance avec
+  // l'utilisateur sans que l'itinéraire soit recalculé à chaque pas.
+  const [position, setPosition] = useState<Coordinates | null>(null);
+  const { user } = useAuth();
   const [route, setRoute] = useState<Route | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{
@@ -228,6 +235,34 @@ export default function DirectionsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
+  // `origin` n'existe qu'une fois la permission accordée : le suivi peut
+  // démarrer sans la redemander.
+  const hasOrigin = origin !== null;
+  useEffect(() => {
+    if (!hasOrigin) return;
+
+    let cancelled = false;
+    let subscription: Location.LocationSubscription | undefined;
+    Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.Balanced, distanceInterval: 10 },
+      ({ coords }) =>
+        setPosition({ latitude: coords.latitude, longitude: coords.longitude })
+    )
+      .then(started => {
+        if (cancelled) started.remove();
+        else subscription = started;
+      })
+      // Sans suivi, le repère reste simplement au point de départ.
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+      subscription?.remove();
+    };
+  }, [hasOrigin]);
+
+  const userPosition = position ?? origin;
+
   /** Passe le relais à l'application de navigation du téléphone. */
   const openInMaps = () => {
     const { latitude, longitude } = destination;
@@ -300,8 +335,6 @@ export default function DirectionsScreen() {
             }}
           />
 
-          {origin && <LocationPuck puckBearing="course" puckBearingEnabled />}
-
           {route && route.coordinates.length > 1 && (
             <ShapeSource id="route" shape={routeShape}>
               {/* Liseré contrasté sous le tracé, pour le détacher des routes
@@ -358,6 +391,18 @@ export default function DirectionsScreen() {
               />
             </View>
           </MarkerView>
+
+          {/* Déclaré en dernier pour rester au-dessus du tracé et du drapeau :
+              le même repère avatar que sur la carte d'accueil. */}
+          {userPosition && (
+            <MarkerView
+              coordinate={[userPosition.longitude, userPosition.latitude]}
+              anchor={{ x: 0.5, y: 1 }}
+              allowOverlap
+            >
+              <UserMarker avatarUrl={user?.avatarUrl} label={t.you} />
+            </MarkerView>
+          )}
         </MapView>
       ) : (
         <MapPlaceholder />
