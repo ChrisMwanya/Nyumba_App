@@ -269,6 +269,9 @@ export default function HomeScreen() {
           sort: 'rating',
           cityId: selection.cityId,
           categoryId: selectedCategoryId ?? undefined,
+          // Sans budget, le nombre de personnes n'a pas d'effet.
+          budget: selection.budget,
+          people: selection.budget ? selection.people : undefined,
         }),
         getCategories(),
       ]);
@@ -294,7 +297,13 @@ export default function HomeScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selection.cityId, selectedCategoryId, preferences]);
+  }, [
+    selection.cityId,
+    selection.budget,
+    selection.people,
+    selectedCategoryId,
+    preferences,
+  ]);
 
   useEffect(() => {
     fetchData();

@@ -8,7 +8,7 @@ import BottomSheet from '@/components/BottomSheet';
 import { CATEGORY_INK, getCategoryColor } from '@/constants/categories';
 import { getDynamicFeatures } from '@/constants/features';
 import { useTheme } from '@/contexts/ThemeContext';
-import type { Annonce } from '@/services/annonceService';
+import { getPriceLabel, type Annonce } from '@/services/annonceService';
 import { formatDistance } from '@/utils/geo';
 import { openDirections } from '@/utils/map';
 
@@ -42,6 +42,7 @@ export default function AnnonceSheet({
 
   const tint = getCategoryColor(annonce.category?.slug);
   const readableDistance = formatDistance(distance);
+  const priceLabel = getPriceLabel(annonce);
   const features = getDynamicFeatures(annonce).slice(0, 3);
   const hasCoordinates =
     annonce.latitude !== undefined && annonce.longitude !== undefined;
@@ -180,7 +181,7 @@ export default function AnnonceSheet({
           </TouchableOpacity>
         </View>
 
-        {(features.length > 0 || annonce.priceRange) && (
+        {(features.length > 0 || priceLabel) && (
           <View
             style={{
               backgroundColor: colors.surface,
@@ -188,16 +189,16 @@ export default function AnnonceSheet({
             }}
             className="mt-5 rounded-3xl border p-5"
           >
-            {annonce.priceRange && (
+            {priceLabel && (
               <View className="mb-4 flex-row items-center justify-between">
                 <Text
                   style={{ color: colors.textMuted }}
                   className="font-body text-xs"
                 >
-                  {language === 'fr' ? 'Gamme de prix' : 'Price range'}
+                  {language === 'fr' ? 'Prix' : 'Price'}
                 </Text>
                 <Text style={{ color: colors.teal }} className="font-body-bold">
-                  {annonce.priceRange}
+                  {priceLabel}
                 </Text>
               </View>
             )}

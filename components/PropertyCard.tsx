@@ -12,7 +12,7 @@ import {
 } from '@/constants/categories';
 import { getDynamicFeatures, type FeatureItem } from '@/constants/features';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Annonce } from '@/services/annonceService';
+import { Annonce, getPriceLabel } from '@/services/annonceService';
 import { formatDistance } from '@/utils/geo';
 import { openDirections } from '@/utils/map';
 
@@ -43,6 +43,7 @@ export default function PropertyCard({
   const tint = getCategoryColor(annonce.category?.slug);
   const features = getDynamicFeatures(annonce).slice(0, 2);
   const readableDistance = formatDistance(distance);
+  const priceLabel = getPriceLabel(annonce);
   const hasCoordinates =
     annonce.latitude !== undefined && annonce.longitude !== undefined;
 
@@ -104,10 +105,10 @@ export default function PropertyCard({
 
         <FavoriteButton annonce={annonce} className="absolute right-3 top-3" />
 
-        {annonce.priceRange && (
+        {priceLabel && (
           <View className="absolute bottom-3 right-3 rounded-full bg-black/65 px-3 py-1.5">
             <Text className="font-body-bold text-[11px] text-white">
-              {annonce.priceRange}
+              {priceLabel}
             </Text>
           </View>
         )}

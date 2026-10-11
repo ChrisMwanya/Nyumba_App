@@ -39,6 +39,9 @@ export type Annonce = {
   address: string;
   // Gamme de prix libre ("$$", "$$$$"…) : l'API ne fournit pas de tarif chiffré
   priceRange?: string;
+  // Budget à prévoir par personne, en dollars ; absent si non renseigné
+  budgetMin?: number;
+  budgetMax?: number;
   latitude?: number;
   longitude?: number;
   // Distance en mètres, renseignée par la recherche de proximité
@@ -79,7 +82,32 @@ export type AnnonceFilters = {
   radius?: number;
   // « rating » : les mieux notées d'abord (ignoré par la recherche de proximité)
   sort?: 'rating';
+  // Budget total du groupe en dollars et nombre de personnes : l'API ne renvoie
+  // que les lieux accessibles avec `budget / people` par personne
+  budget?: number;
+  people?: number;
 };
+
+/**
+ * Prix à afficher pour une annonce : le budget par personne s'il est renseigné
+ * (« 15 – 40 $ / pers. »), sinon la gamme de prix libre.
+ */
+export function getPriceLabel(
+  annonce: Pick<Annonce, 'budgetMin' | 'budgetMax' | 'priceRange'>
+): string | undefined {
+  const { budgetMin: min, budgetMax: max } = annonce;
+  if (min === undefined && max === undefined) return annonce.priceRange;
+
+  const range =
+    min !== undefined && max !== undefined
+      ? min === max
+        ? `${min} $`
+        : `${min} – ${max} $`
+      : min !== undefined
+        ? `dès ${min} $`
+        : `jusqu'à ${max} $`;
+  return `${range} / pers.`;
+}
 
 export type ListingRating = {
   // Arrondie au dixième par l'API ; 0 tant que personne n'a noté
@@ -108,6 +136,8 @@ export type ApiListing = {
   categoryId: string;
   cityId: string | null;
   priceRange: string | null;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
   attributes?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -129,6 +159,8 @@ export function toAnnonce(listing: ApiListing): Annonce {
     description: listing.description ?? undefined,
     address: listing.address,
     priceRange: listing.priceRange ?? undefined,
+    budgetMin: listing.budgetMin ?? undefined,
+    budgetMax: listing.budgetMax ?? undefined,
     latitude: listing.lat ?? undefined,
     longitude: listing.lng ?? undefined,
     distance: listing.distance,
@@ -169,6 +201,8 @@ export async function getAnnonces(
       lng,
       radius: radius !== undefined ? radius * 1000 : undefined,
       categoryId: rest.categoryId,
+      budget: rest.budget,
+      people: rest.people,
     });
     const listings = await apiRequest<ApiListing[]>(
       `/listings/nearby?${query}`
