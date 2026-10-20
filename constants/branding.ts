@@ -1,5 +1,5 @@
 /**
- * Nyumba — Logo assets
+ * Fasi — Logo assets
  *
  * Les fichiers sont nommés d'après **l'encre du logo**, pas d'après le thème :
  *   - `splash-icon-dark.png`  → logo bleu nuit, destiné aux fonds CLAIRS

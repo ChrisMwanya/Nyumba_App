@@ -1,5 +1,5 @@
 /**
- * Nyumba — Configuration Mapbox
+ * Fasi — Configuration Mapbox
  *
  * Le style « Standard » (Mapbox v11) porte nativement les bâtiments, reliefs et
  * repères en 3D : il suffit de l'incliner (`pitch`) pour obtenir la vue 3D.

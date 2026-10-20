@@ -134,7 +134,7 @@ export default function RegisterScreen() {
             style={{ color: colors.text }}
             className="font-body-bold text-3xl"
           >
-            Rejoignez Nyumba
+            Rejoignez Fasi
           </Text>
           <Text
             style={{ color: colors.textMuted }}

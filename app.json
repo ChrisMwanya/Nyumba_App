@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Nyumba",
+    "name": "Fasi",
     "slug": "nyumba",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,7 +17,7 @@
       "bundleIdentifier": "com.anonymous.nyumba-mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocationWhenInUseUsageDescription": "Nyumba utilise votre position pour afficher sur la carte les bons coins autour de vous et calculer vos itinéraires."
+        "NSLocationWhenInUseUsageDescription": "Fasi utilise votre position pour afficher sur la carte les bons coins autour de vous et calculer vos itinéraires."
       }
     },
     "android": {
@@ -67,7 +67,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Nyumba utilise votre position pour afficher sur la carte les bons coins autour de vous et calculer vos itinéraires."
+          "locationWhenInUsePermission": "Fasi utilise votre position pour afficher sur la carte les bons coins autour de vous et calculer vos itinéraires."
         }
       ],
       "@rnmapbox/maps"
