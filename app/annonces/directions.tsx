@@ -72,7 +72,7 @@ const LABELS = {
     retry: 'Réessayer',
     permissionTitle: 'Position nécessaire',
     permissionBody:
-      "Pour tracer un itinéraire, Nyumba a besoin de savoir d'où vous partez.",
+      "Pour tracer un itinéraire, Fasi a besoin de savoir d'où vous partez.",
     openSettings: 'Ouvrir les réglages',
     noKey: 'Le service de calcul d’itinéraire n’est pas configuré.',
     noRoute: 'Aucun itinéraire trouvé jusqu’à ce lieu.',
@@ -93,7 +93,7 @@ const LABELS = {
     retry: 'Try again',
     permissionTitle: 'Location needed',
     permissionBody:
-      'To draw a route, Nyumba needs to know where you are starting from.',
+      'To draw a route, Fasi needs to know where you are starting from.',
     openSettings: 'Open Settings',
     noKey: 'The routing service is not configured.',
     noRoute: 'No route found to this place.',

@@ -127,7 +127,7 @@ const LABELS = {
     widenRadius: 'Élargir',
     locationOffTitle: 'Position désactivée',
     locationOffBody:
-      "Nyumba n'a pas accès à votre position, la carte ne peut donc pas vous situer ni trier les lieux par proximité. Vous pouvez l'autoriser dans les réglages.",
+      "Fasi n'a pas accès à votre position, la carte ne peut donc pas vous situer ni trier les lieux par proximité. Vous pouvez l'autoriser dans les réglages.",
     openSettings: 'Ouvrir les réglages',
     cancel: 'Plus tard',
   },
@@ -177,7 +177,7 @@ const LABELS = {
     widenRadius: 'Widen',
     locationOffTitle: 'Location off',
     locationOffBody:
-      'Nyumba cannot access your location, so the map cannot centre on you or sort places by distance. You can allow it in Settings.',
+      'Fasi cannot access your location, so the map cannot centre on you or sort places by distance. You can allow it in Settings.',
     openSettings: 'Open Settings',
     cancel: 'Later',
   },

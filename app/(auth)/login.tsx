@@ -93,7 +93,7 @@ export default function LoginScreen() {
             style={{ color: colors.text, letterSpacing: -0.8 }}
             className="mb-2 font-body-bold text-3xl"
           >
-            Bienvenue sur Nyumba.
+            Bienvenue sur Fasi.
           </Text>
           <Text
             style={{ color: colors.textMuted }}

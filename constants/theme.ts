@@ -1,5 +1,5 @@
 /**
- * Nyumba — Centralized Theme Tokens
+ * Fasi — Centralized Theme Tokens
  *
  * This file is the **single source of truth** for every colour used across the
  * app. Screens and components should never hard-code hex values; they import
